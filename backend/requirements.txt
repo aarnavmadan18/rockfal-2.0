@@ -1,0 +1,8 @@
+# Unpinned on purpose: pinned older versions forced pip to compile
+# pydantic-core from source (needs Rust) on newer Pythons. Latest
+# releases always ship pre-built wheels.
+fastapi
+uvicorn[standard]
+websockets
+python-multipart
+requests

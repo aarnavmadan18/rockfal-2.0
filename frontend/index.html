@@ -1,0 +1,2807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INNOVATRIX — Rockfall Prediction & Alert Control Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M3 20 L9 8 L13 14 L16 9 L21 20 Z' fill='%23d97706'/></svg>">
+<!-- Three.js bundled locally so the demo works even with no internet at the venue;
+     falls back to CDN only if the local copy is missing. -->
+<script src="three.min.js"></script>
+<script>if(typeof THREE==='undefined')document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+<script src="loaders/OrbitControls.js"></script>
+<script src="loaders/PLYLoader.js"></script>
+<script src="loaders/MTLLoader.js"></script>
+<script src="loaders/OBJLoader.js"></script>
+<script src="loaders/GLTFLoader.js"></script>
+<script src="loaders/DRACOLoader.js"></script>
+<style>
+  :root{
+    --bg: #05070d;
+    --surface: #0b101c;
+    --surface-2: #101725;
+    --surface-3: #16202f;
+    --line: #1c2739;
+    --line-bright: #2c3d57;
+    --amber: #fbbf24;
+    --amber-deep: #b45309;
+    --accent: #22d3ee;
+    --accent-deep: #0891b2;
+    --low: #34d399;
+    --moderate: #fde047;
+    --high: #fb923c;
+    --critical: #f43f5e;
+    --cyan: #22d3ee;
+    --blue: #60a5fa;
+    --text: #e8eef7;
+    --text-2: #9fb2c8;
+    --text-3: #5d7089;
+    --sans: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    --radius: 14px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-md: 0 2px 6px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.45);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html, body{ height:100%; }
+  body{
+    background:
+      radial-gradient(1200px 500px at 70% -10%, rgba(34,211,238,0.07), transparent 60%),
+      radial-gradient(900px 400px at 10% 110%, rgba(251,191,36,0.04), transparent 60%),
+      linear-gradient(rgba(148,190,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,190,255,0.025) 1px, transparent 1px),
+      var(--bg);
+    background-size: auto, auto, 28px 28px, 28px 28px, auto;
+    color: var(--text);
+    font-family: var(--sans);
+    overflow-x: hidden;
+  }
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-track{ background: transparent; }
+  ::-webkit-scrollbar-thumb{ background: #2c3d57; border-radius:6px; }
+  ::-webkit-scrollbar-thumb:hover{ background: #3d5478; }
+
+  /* ============ TOP BAR ============ */
+  .topbar{
+    display:flex; align-items:center; gap:20px;
+    padding: 12px 22px;
+    background: rgba(9,13,22,0.92);
+    border-bottom: 1px solid var(--line);
+    position: sticky; top:0; z-index:30;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  .topbar::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+    background: linear-gradient(90deg, var(--accent), #06b6d4 45%, var(--amber));
+  }
+  .brand{ display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .brand-mark{
+    width:38px; height:38px; border-radius:9px; position:relative; flex-shrink:0;
+    background: linear-gradient(135deg, #1a1206, #241a08);
+    border: 1px solid var(--amber-deep);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 18px rgba(251,191,36,0.2), inset 0 0 12px rgba(251,191,36,0.08);
+  }
+  .brand-mark svg{ width:22px; height:22px; }
+  .brand-text h1{ font-size:16px; font-weight:800; letter-spacing:0.3px; line-height:1.1; }
+  .brand-text h1 em{ font-style:normal; color:var(--amber); }
+  .brand-text span{ font-size:9.5px; color:var(--text-3); letter-spacing:1.6px; text-transform:uppercase; font-weight:600; }
+
+  .kpi-strip{
+    display:flex; gap:10px; flex:1; justify-content:center;
+    overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none;
+  }
+  .kpi-strip::-webkit-scrollbar{ display:none; }
+  .kpi{
+    display:flex; flex-direction:column; gap:1px;
+    padding: 7px 16px; border-radius:10px;
+    background: var(--surface-2); border:1px solid var(--line);
+    min-width:118px; flex-shrink:0; box-shadow: var(--shadow-sm);
+  }
+  .kpi .k-label{ font-size:9px; color:var(--text-3); text-transform:uppercase; letter-spacing:1px; font-weight:600; white-space:nowrap; }
+  .kpi .k-value{ font-family:var(--mono); font-size:18px; font-weight:700; white-space:nowrap; }
+  .kpi .k-value small{ font-size:11px; color:var(--text-3); font-weight:400; }
+
+  .top-right{ display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .clock{ font-family:var(--mono); font-size:12.5px; color:var(--text-2); letter-spacing:0.5px; }
+  .status-pill{
+    display:flex; align-items:center; gap:8px;
+    font-family: var(--mono); font-size:11.5px; font-weight:500;
+    padding:7px 14px; border-radius:20px;
+    border:1px solid var(--line); background:var(--surface-2);
+  }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--text-3); }
+  .dot.live{ background: var(--low); box-shadow:0 0 10px var(--low); animation: pulse 1.6s infinite; }
+  .dot.down{ background: var(--critical); box-shadow:0 0 8px var(--critical); }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+  /* ============ LAYOUT ============ */
+  .layout{
+    display:grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
+    gap:14px;
+    padding:14px 22px 8px;
+    align-items:start;
+    max-width:1760px; margin:0 auto;
+  }
+  .main-col, .side-col{ display:flex; flex-direction:column; gap:14px; min-width:0; }
+
+  .panel{
+    background: linear-gradient(180deg, var(--surface), #080d16);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow:hidden;
+    box-shadow: var(--shadow-md);
+  }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(34,211,238,0.03);
+  }
+  .panel-head .ph-title{
+    display:flex; align-items:center; gap:8px;
+    font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--text-2); font-weight:700;
+  }
+  .ph-title .tick{ width:3px; height:14px; border-radius:2px; background:var(--accent); box-shadow:0 0 10px rgba(34,211,238,0.7); }
+  .panel-head b{ color: var(--text); font-weight:600; font-size:11.5px; font-family:var(--mono); }
+
+  /* ============ 3D MAP ============ */
+  #map-wrap{ position:relative; height: 480px; background: radial-gradient(700px 340px at 50% 30%, #0e1522, #06090f); }
+  #map-canvas{ width:100%; height:100%; display:block; cursor:grab; }
+  #map-canvas:active{ cursor:grabbing; }
+  .map-hint{
+    position:absolute; bottom:10px; left:14px;
+    font-family: var(--mono); font-size:10.5px; color: var(--text-3);
+    background: rgba(7,10,16,0.7); padding:4px 10px; border-radius:6px;
+    pointer-events:none;
+  }
+  .map-controls{ position:absolute; bottom:10px; right:12px; display:flex; gap:6px; }
+  .map-btn{
+    background:rgba(11,16,28,0.88); border:1px solid var(--line-bright); color:var(--text-2);
+    font-family:var(--mono); font-size:10.5px; padding:5px 10px; border-radius:6px; cursor:pointer;
+    transition: all 0.15s; box-shadow: var(--shadow-sm);
+  }
+  .map-btn:hover{ color:var(--accent); border-color:var(--accent-deep); }
+  .map-btn.active{ color:var(--accent); border-color:var(--accent-deep); background:rgba(34,211,238,0.1); box-shadow:0 0 10px rgba(34,211,238,0.15); }
+  .map-btn.demo-live{
+    color:#ffd3db; border-color:var(--critical); background:rgba(244,63,94,0.15);
+    animation: pulse 1.2s infinite;
+  }
+
+  /* 3D hover tooltip */
+  #zone-tooltip{
+    position:absolute; display:none; pointer-events:none; z-index:20;
+    background:rgba(8,12,20,0.94); border:1px solid var(--line-bright); border-radius:9px;
+    padding:9px 12px; font-family:var(--mono); font-size:11px; line-height:1.7;
+    box-shadow:0 8px 22px rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+  }
+  #zone-tooltip .zt-name{ font-family:var(--sans); font-weight:700; font-size:12.5px; }
+  #zone-tooltip .zt-dim{ color:var(--text-3); }
+
+  /* simulation banner */
+  .sim-banner{
+    display:none; position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    align-items:center; gap:10px; z-index:15;
+    background:rgba(244,63,94,0.14); border:1px solid var(--critical);
+    color:#ffd3db; font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:1px;
+    padding:7px 14px; border-radius:20px; cursor:pointer; backdrop-filter:blur(4px);
+  }
+  .sim-banner.on{ display:flex; }
+  .sim-banner i{ width:8px; height:8px; border-radius:50%; background:var(--critical); animation:pulse 1s infinite; }
+
+  /* toast */
+  #toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(8px);
+    background:var(--surface-2); border:1px solid var(--line-bright); border-radius:10px;
+    padding:10px 18px; font-size:12.5px; color:var(--text-2); z-index:80;
+    box-shadow:0 10px 30px rgba(0,0,0,0.55); opacity:0; transition:all 0.4s; pointer-events:none;
+    max-width:90vw; text-align:center;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast b{ color:var(--accent); }
+
+  /* ---- survey panel ---- */
+  .survey-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:9px 14px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:12px;
+  }
+  .survey-row:last-child{ border-bottom:none; }
+  .survey-status{
+    font-size:8.5px; letter-spacing:0.6px; text-transform:uppercase; font-weight:700;
+    padding:3px 8px; border-radius:5px; border:1px solid var(--line); color:var(--text-3); white-space:nowrap;
+  }
+  .survey-status.st-complete{ color:var(--low); border-color:rgba(52,211,153,0.4); background:rgba(52,211,153,0.08); }
+  .survey-status.st-processing{ color:var(--cyan); border-color:rgba(34,211,238,0.4); background:rgba(34,211,238,0.08); animation:pulse 1.4s infinite; }
+  .survey-status.st-images{ color:var(--moderate); border-color:rgba(253,224,71,0.35); background:rgba(253,224,71,0.06); }
+  .survey-status.st-failed{ color:var(--critical); border-color:rgba(244,63,94,0.4); background:rgba(244,63,94,0.08); }
+  .survey-msg{ font-size:9.5px; color:var(--text-3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:190px; }
+  .btn-mini{
+    background:var(--surface-3); border:1px solid var(--line-bright); color:var(--text-2);
+    padding:4px 9px; border-radius:6px; font-size:10px; cursor:pointer; font-family:var(--mono); white-space:nowrap;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-mini:hover{ color:var(--accent); border-color:var(--accent-deep); }
+  .btn-mini.view3d{ color:var(--low); border-color:rgba(52,211,153,0.4); }
+  .btn-mini.view3d:hover{ background:rgba(52,211,153,0.1); }
+
+  /* ---- 3D Survey Studio: stepper + dropzone ---- */
+  .stepper{ display:flex; align-items:center; gap:8px; padding:2px 0 4px; }
+  .step{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
+  .step-dot{
+    width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:11.5px; font-weight:700;
+    background:var(--surface-3); border:1px solid var(--line-bright); color:var(--text-3);
+    transition: all .25s;
+  }
+  .step-name{ font-size:11px; font-weight:600; color:var(--text-3); letter-spacing:.4px; text-transform:uppercase; }
+  .step.active .step-dot{ background:rgba(34,211,238,.1); border-color:var(--accent); color:var(--accent); box-shadow:0 0 12px rgba(34,211,238,.3); }
+  .step.active .step-name{ color:var(--accent); }
+  .step.done .step-dot{ background:rgba(52,211,153,.1); border-color:var(--low); color:var(--low); }
+  .step.done .step-name{ color:var(--low); }
+  .step-bar{ flex:1; height:2px; background:var(--line); border-radius:2px; min-width:18px; }
+  .step-bar.done{ background:var(--low); }
+  .dropzone{
+    border:1.5px dashed var(--line-bright); border-radius:12px;
+    padding:16px 14px 12px; text-align:center;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    background:var(--surface-2); transition: all .2s; cursor:default;
+  }
+  .dropzone.drag{ border-color:var(--accent); background:rgba(34,211,238,.06); box-shadow:0 0 18px rgba(34,211,238,.12) inset; }
+  .dz-icon{ font-size:22px; color:var(--text-3); }
+  .dz-text{ font-size:11.5px; color:var(--text-2); line-height:1.55; }
+  #btn-view3d:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn, .map-btn{ transition: all .18s; }
+  .panel{ transition: box-shadow .25s; }
+  .panel:hover{ box-shadow: 0 4px 28px rgba(0,0,0,.5), 0 0 0 1px rgba(34,211,238,0.08); }
+  .kpi{ transition: border-color .2s; }
+  .kpi:hover{ border-color: var(--line-bright); }
+
+  /* ---- fullscreen survey viewer ---- */
+  #viewer-overlay{
+    display:none; position:fixed; inset:0; z-index:60; background:rgba(4,7,12,0.98);
+    flex-direction:column;
+  }
+  #viewer-overlay.open{ display:flex; }
+  .viewer-top{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:12px 20px; border-bottom:1px solid var(--line);
+  }
+  .viewer-title{ font-size:14px; font-weight:700; }
+  .viewer-title small{ display:block; font-family:var(--mono); font-size:10px; color:var(--text-3); font-weight:400; margin-top:2px; }
+  #viewer-canvas-wrap{ flex:1; position:relative; min-height:0; }
+  #viewer-canvas{ width:100%; height:100%; display:block; cursor:grab; }
+  #viewer-canvas:active{ cursor:grabbing; }
+  .viewer-hud{
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; align-items:center;
+    font-family:var(--mono); font-size:10.5px; color:var(--text-3);
+    background:rgba(8,12,20,0.85); padding:6px 14px; border-radius:20px; border:1px solid var(--line);
+  }
+  .viewer-hud b{ color:var(--accent); font-size:12px; }
+  .btn.active{ border-color:var(--accent-deep); color:var(--accent); background:rgba(34,211,238,0.08); }
+  .viewer-legend{
+    position:absolute; top:12px; right:12px; display:none; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:10.5px; color:var(--text-2);
+    background:rgba(8,12,20,0.9); border:1px solid var(--line); border-radius:9px;
+    padding:8px 12px; backdrop-filter:blur(4px); box-shadow:var(--shadow-sm);
+  }
+  .viewer-legend.on{ display:flex; }
+  .viewer-legend b{ color:var(--text); font-family:var(--sans); font-size:11px; }
+  .vl-bar{ width:110px; height:8px; border-radius:4px; }
+  .vl-bar.slope{ background:linear-gradient(90deg,#22c55e,#eab308,#ef4444); }
+  .vl-bar.elev{ background:linear-gradient(90deg,#3b82f6,#22d3ee,#22c55e,#eab308,#ef4444); }
+  #viewer-loading{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:12px; color:var(--text-2); flex-direction:column; gap:12px;
+  }
+  .spinner{
+    width:34px; height:34px; border-radius:50%;
+    border:3px solid var(--line-bright); border-top-color:var(--accent);
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  kbd{
+    font-family:var(--mono); font-size:10.5px; color:var(--text);
+    background:var(--surface-3); border:1px solid var(--line-bright); border-bottom-width:2px;
+    border-radius:5px; padding:2px 7px; margin:0 2px;
+  }
+  .help-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:12.5px; color:var(--text-2); padding:6px 0; border-bottom:1px dashed var(--line); }
+  .help-row:last-child{ border-bottom:none; }
+  .legend{
+    position:absolute; top:12px; right:12px;
+    display:flex; flex-direction:column; gap:5px;
+    font-family: var(--mono); font-size:10.5px; color:var(--text-2);
+    background: rgba(8,12,20,0.8); padding:10px 12px; border-radius:9px;
+    border:1px solid var(--line); backdrop-filter: blur(4px); box-shadow: var(--shadow-sm);
+  }
+  .legend-row{ display:flex; align-items:center; gap:8px; }
+  .swatch{ width:10px; height:10px; border-radius:3px; }
+  .map-focus-tag{
+    position:absolute; top:12px; left:14px;
+    font-family:var(--mono); font-size:11px; color:var(--accent); font-weight:700;
+    background: rgba(8,12,20,0.8); border:1px solid var(--accent-deep);
+    padding:6px 12px; border-radius:8px; backdrop-filter: blur(4px); box-shadow: 0 0 12px rgba(34,211,238,0.15);
+  }
+
+  /* ============ ZONE STRIP ============ */
+  .zone-strip{
+    display:grid; grid-template-columns: repeat(6, 1fr); gap:10px;
+  }
+  .zone-tile{
+    background: linear-gradient(180deg, var(--surface), #080d16);
+    border:1px solid var(--line); border-radius:10px;
+    padding: 10px 8px 9px; text-align:center;
+    font-family: var(--mono); cursor:pointer; position:relative;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+    overflow:hidden; box-shadow: var(--shadow-sm);
+  }
+  .zone-tile:hover{ transform: translateY(-2px); border-color: var(--line-bright); box-shadow: var(--shadow-md); }
+  .zone-tile.focused{ border-color: var(--accent-deep); box-shadow: 0 0 0 1px var(--accent-deep), 0 0 18px rgba(34,211,238,0.18); background:linear-gradient(180deg, #0d1522, #0a0f1a); }
+  .zone-tile .risk-bar{ position:absolute; top:0; left:0; right:0; height:4px; background:var(--surface-3); }
+  .zone-tile .risk-bar i{ display:block; height:100%; transition: width 0.4s; }
+  .zone-tile .zid{ font-size: 9.5px; color: var(--text-3); letter-spacing:1px; font-weight:500; margin-top:2px; }
+  .zone-tile .zscore{ font-size: 21px; font-weight:800; margin-top:1px; letter-spacing:-0.5px; }
+  .zone-tile .zlabel{ font-size:8.5px; letter-spacing:0.8px; text-transform:uppercase; margin-top:1px; font-weight:700; }
+  .zone-tile .zoff{ font-size:8.5px; color:var(--text-3); margin-top:2px; }
+  .risk-critical{ color:var(--critical); }
+  .risk-high{ color:var(--high); }
+  .risk-moderate{ color:var(--moderate); }
+  .risk-low{ color:var(--low); }
+  .bar-critical{ background:var(--critical); box-shadow:0 0 8px var(--critical); }
+  .bar-high{ background:var(--high); }
+  .bar-moderate{ background:var(--moderate); }
+  .bar-low{ background:var(--low); }
+
+  /* ============ ANALYTICS ============ */
+  .analytics-body{ display:grid; grid-template-columns: 190px 1fr; gap:0; }
+  .gauge-cell{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: 14px 10px; border-right:1px solid var(--line); gap:4px;
+  }
+  .gauge-wrap{ position:relative; width:150px; height:96px; }
+  .gauge-wrap svg{ width:150px; height:96px; display:block; }
+  .gauge-val{
+    position:absolute; left:0; right:0; bottom:2px; text-align:center;
+    font-family:var(--mono); font-size:23px; font-weight:700;
+  }
+  .gauge-sub{ font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-3); font-weight:700; }
+  .gauge-level{ font-size:10.5px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; }
+  .charts-grid{
+    display:grid; grid-template-columns: 1fr 1fr; gap:0;
+  }
+  .chart-cell{ padding:10px 14px 6px; border-bottom:1px solid var(--line); border-right:1px solid var(--line); position:relative; }
+  .chart-cell:nth-child(2n){ border-right:none; }
+  .chart-cell:nth-child(n+3){ border-bottom:none; }
+  .chart-title{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:9.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:1px; font-weight:700;
+    margin-bottom:2px;
+  }
+  .chart-title b{ font-family:var(--mono); font-size:12.5px; color:var(--text); font-weight:700; letter-spacing:0; text-transform:none; }
+  .chart-canvas{ width:100%; height:72px; display:block; }
+  #gauge-arc{ filter: drop-shadow(0 0 6px rgba(34,211,238,0.25)); transition: stroke 0.3s; }
+  #chart-tooltip{
+    position:fixed; pointer-events:none; z-index:90; display:none;
+    background:rgba(8,12,20,0.95); border:1px solid var(--line-bright); border-radius:7px;
+    padding:6px 10px; font-family:var(--mono); font-size:10.5px; color:var(--text);
+    box-shadow:0 6px 18px rgba(0,0,0,0.55); white-space:nowrap;
+  }
+  #chart-tooltip .tt-time{ color:var(--text-3); font-size:9.5px; }
+
+  /* ============ SIDE PANELS ============ */
+  .sensor-grid{ display:grid; grid-template-columns:1fr 1fr; }
+  .sensor-cell{
+    padding:10px 14px; border-bottom:1px solid var(--line); border-right:1px solid var(--line);
+  }
+  .sensor-cell:nth-child(2n){ border-right:none; }
+  .sensor-cell .s-label{ font-size:9px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.8px; font-weight:600; }
+  .sensor-cell .s-value{ font-family:var(--mono); font-size:15px; font-weight:600; margin-top:2px; }
+  .sensor-cell .s-value small{ font-size:10px; color:var(--text-3); font-weight:400; }
+
+  .camera-feed{
+    width:100%; aspect-ratio:16/9; background:#0b1220;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    border-top:1px solid var(--line); position:relative;
+  }
+  .camera-feed img{ width:100%; height:100%; object-fit:cover; }
+  .camera-placeholder{ color:var(--text-3); font-family:var(--mono); font-size:11px; text-align:center; padding:10px; line-height:1.7; }
+  .camera-placeholder .cam-icon{ font-size:20px; opacity:0.5; }
+  .rec-tag{
+    position:absolute; top:8px; left:10px; display:flex; align-items:center; gap:6px;
+    font-family:var(--mono); font-size:9.5px; color:#fb7185; font-weight:700; letter-spacing:1px;
+    background:rgba(2,6,23,0.7); padding:3px 8px; border-radius:5px;
+  }
+  .rec-tag i{ width:7px; height:7px; border-radius:50%; background:var(--critical); animation:pulse 1.2s infinite; }
+
+  /* devices */
+  .device-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 14px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:12px;
+    transition: background 0.15s;
+  }
+  .device-row:hover{ background: rgba(255,255,255,0.02); }
+  .device-row:last-child{ border-bottom:none; }
+  .device-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .device-zone-chip{
+    width:26px; height:26px; border-radius:7px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--surface-3); border:1px solid var(--line-bright);
+    font-size:11px; font-weight:700; color:var(--text-2);
+  }
+  .device-sub{ font-size:9.5px; color:var(--text-3); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .conn-badges{ display:flex; gap:5px; flex-shrink:0; }
+  .conn-badge{
+    display:flex; align-items:center; gap:5px;
+    font-size:8.5px; letter-spacing:0.5px; text-transform:uppercase; font-weight:700;
+    padding:3px 8px; border-radius:5px; border:1px solid var(--line); color:var(--text-3);
+  }
+  .conn-badge i{ width:6px; height:6px; border-radius:50%; background:var(--text-3); flex-shrink:0; }
+  .conn-badge.on{ color:var(--low); border-color:rgba(52,211,153,0.4); background:rgba(52,211,153,0.08); }
+  .conn-badge.on i{ background:var(--low); box-shadow:0 0 6px var(--low); }
+
+  /* mine overview table */
+  .ov-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .ov-table th{
+    text-align:left; font-size:9px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--text-3); font-weight:700; padding:8px 14px;
+    border-bottom:1px solid var(--line); background:var(--surface-2); white-space:nowrap;
+  }
+  .ov-table td{ padding:8px 14px; border-bottom:1px solid var(--line); font-family:var(--mono); white-space:nowrap; }
+  .ov-table tbody tr:last-child td{ border-bottom:none; }
+  .ov-table tbody tr{ cursor:pointer; transition:background .12s; }
+  .ov-table tbody tr:hover{ background:rgba(34,211,238,0.05); }
+  .ov-table tbody tr.focused{ background:rgba(34,211,238,0.07); box-shadow:inset 3px 0 0 var(--accent); }
+  .ov-risk-bar{
+    display:inline-block; width:54px; height:5px; border-radius:3px;
+    background:var(--surface-3); vertical-align:middle; margin-right:8px; overflow:hidden;
+  }
+  .ov-risk-bar i{ display:block; height:100%; border-radius:3px; transition:width .4s; }
+  .ov-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:#33465e; }
+  .ov-dot.on{ background:var(--low); box-shadow:0 0 6px var(--low); }
+
+  /* workforce tracking */
+  .wf-count{ font-family:var(--mono); font-size:14px; font-weight:700; min-width:28px; text-align:center; }
+  .wf-btn{
+    width:24px; height:24px; border-radius:6px; border:1px solid var(--line-bright);
+    background:var(--surface-3); color:var(--text-2); cursor:pointer; font-size:13px; line-height:1;
+    transition: all 0.15s; box-shadow: var(--shadow-sm);
+  }
+  .wf-btn:hover{ color:var(--accent); border-color:var(--accent-deep); }
+  .wf-danger{
+    font-size:8.5px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase;
+    padding:3px 8px; border-radius:5px; white-space:nowrap;
+    background:rgba(244,63,94,0.14); color:#ffb3c0; border:1px solid rgba(244,63,94,0.45);
+    animation:pulse 1.2s infinite;
+  }
+
+  .btn{
+    background:var(--surface-3); border:1px solid var(--line-bright); color:var(--text);
+    padding:7px 13px; border-radius:7px; font-size:11.5px; cursor:pointer; font-family:var(--sans); font-weight:600;
+    transition: all 0.15s; box-shadow: var(--shadow-sm);
+  }
+  .btn:hover{ border-color:var(--accent-deep); color:var(--accent); }
+  .btn.primary{
+    background: linear-gradient(180deg, #34e3ff, var(--accent-deep)); color:#04222b; border:none; font-weight:700;
+    box-shadow: 0 2px 12px rgba(34,211,238,0.3);
+  }
+  .btn.primary:hover{ filter:brightness(1.08); color:#04222b; transform:translateY(-1px); box-shadow: 0 4px 18px rgba(34,211,238,0.4); }
+
+  /* alerts */
+  .alerts-list{ max-height: 300px; overflow-y:auto; }
+  .alert-item{
+    padding:9px 14px; border-bottom:1px solid var(--line);
+    display:flex; gap:10px; align-items:flex-start;
+    animation: slideIn 0.25s ease;
+  }
+  @keyframes slideIn{ from{ opacity:0; transform:translateY(-4px);} to{ opacity:1; transform:none;} }
+  .alert-item:last-child{ border-bottom:none; }
+  .alert-badge{
+    font-size:8.5px; padding:3px 7px; border-radius:5px; font-weight:800;
+    letter-spacing:0.8px; white-space:nowrap; margin-top:2px; text-transform:uppercase;
+  }
+  .badge-critical{ background: rgba(244,63,94,0.12); color:var(--critical); border:1px solid rgba(244,63,94,0.4); }
+  .badge-high{ background: rgba(251,146,60,0.12); color:var(--high); border:1px solid rgba(251,146,60,0.4); }
+  .badge-moderate{ background: rgba(253,224,71,0.1); color:var(--moderate); border:1px solid rgba(253,224,71,0.35); }
+  .badge-low{ background: rgba(52,211,153,0.1); color:var(--low); border:1px solid rgba(52,211,153,0.35); }
+  .alert-body{ min-width:0; }
+  .alert-body .msg{ font-size:12px; line-height:1.45; }
+  .alert-item:has(.badge-critical){ box-shadow: inset 3px 0 0 var(--critical); }
+  .alert-item:has(.badge-high){ box-shadow: inset 3px 0 0 var(--high); }
+  .alert-item:has(.badge-moderate){ box-shadow: inset 3px 0 0 var(--moderate); }
+  .alert-item:has(.badge-low){ box-shadow: inset 3px 0 0 var(--low); }
+  .alert-body .meta{ font-family:var(--mono); font-size:9.5px; color:var(--text-3); margin-top:2px; }
+  .empty-note{ padding: 18px 16px; color:var(--text-3); font-size:12px; }
+
+  /* modals */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(2,4,8,0.7);
+    align-items:center; justify-content:center; z-index:50; padding:20px;
+    backdrop-filter: blur(3px);
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    background: var(--surface); border:1px solid var(--line-bright); border-radius:14px;
+    width:100%; max-width:440px; overflow:hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.65);
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn{ from{ opacity:0; transform:scale(0.97) translateY(6px);} to{ opacity:1; transform:none;} }
+  .modal-head{
+    padding:14px 18px; border-bottom:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .modal-head h3{ font-size:14px; font-weight:700; }
+  .modal-close{ background:none; border:none; color:var(--text-3); font-size:20px; cursor:pointer; line-height:1; }
+  .modal-close:hover{ color:var(--text); }
+  .modal-body{ padding:16px 18px; display:flex; flex-direction:column; gap:13px; }
+  .modal-body label{ font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.8px; display:block; margin-bottom:5px; font-weight:700; }
+  .modal-body select, .modal-body input[type=text], .modal-body input[type=password]{
+    width:100%; background:var(--surface-2); border:1px solid var(--line-bright); border-radius:8px;
+    color:var(--text); padding:9px 11px; font-family:var(--mono); font-size:12.5px;
+  }
+  .modal-body select:focus, .modal-body input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(34,211,238,0.15); }
+  .code-block{
+    background:#04060b; border:1px solid var(--line); border-radius:8px;
+    padding:12px; font-family:var(--mono); font-size:11px; color:#7ee787;
+    white-space:pre-wrap; word-break:break-all; line-height:1.7;
+  }
+  .modal-hint{ font-size:11.5px; color:var(--text-2); line-height:1.55; }
+  .modal-hint code{ font-family:var(--mono); color:var(--amber); font-size:10.5px; background:var(--surface-3); padding:1px 5px; border-radius:4px; }
+  .modal-footer{ padding:12px 18px 18px; display:flex; gap:8px; justify-content:flex-end; }
+
+  .footer-note{
+    padding: 8px 22px 22px; color:var(--text-3); font-size:10.5px; font-family:var(--mono);
+    line-height:1.7;
+  }
+  .footer-note b{ color:var(--text-2); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1180px){
+    .layout{ grid-template-columns: 1fr; }
+    #map-wrap{ height: 400px; }
+    .kpi{ min-width:104px; padding:6px 12px; }
+  }
+  @media (max-width: 760px){
+    .topbar{ flex-wrap:wrap; gap:10px; padding:10px 14px; }
+    .kpi-strip{ order:3; width:100%; justify-content:flex-start; }
+    .layout{ padding:12px 14px 6px; }
+    #map-wrap{ height: 300px; }
+    .zone-strip{ grid-template-columns: repeat(3, 1fr); gap:8px; }
+    .analytics-body{ grid-template-columns: 1fr; }
+    .gauge-cell{ border-right:none; border-bottom:1px solid var(--line); }
+    .clock{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M3 20 L9 8 L13 14 L16 9 L21 20 Z" fill="#d97706" opacity="0.9"/>
+        <path d="M9 8 L11 4 L13 8" stroke="#d97706" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <circle cx="17.5" cy="5.5" r="1.6" fill="#e11d48"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <h1>INNOVA<em>TRIX</em></h1>
+      <span>Rockfall Prediction · Control Room</span>
+    </div>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><span class="k-label">Highest Risk</span><span class="k-value" id="kpi-highest">--</span></div>
+    <div class="kpi"><span class="k-label">Mine Avg Risk</span><span class="k-value" id="kpi-avg">--</span></div>
+    <div class="kpi"><span class="k-label">Nodes Online</span><span class="k-value" id="kpi-nodes">0<small>/6</small></span></div>
+    <div class="kpi"><span class="k-label">Cameras</span><span class="k-value" id="kpi-cams">0<small>/6</small></span></div>
+    <div class="kpi"><span class="k-label">Drone Surveys</span><span class="k-value" id="kpi-drones">0</span></div>
+    <div class="kpi"><span class="k-label">Alerts Today</span><span class="k-value" id="kpi-alerts">0</span></div>
+    <div class="kpi"><span class="k-label">Crew In Pit</span><span class="k-value" id="kpi-workers">0</span></div>
+    <div class="kpi" id="kpi-weather" onclick="openWeatherModal()" style="cursor:pointer;" title="Live weather + rain forecast — click to set mine location">
+      <span class="k-label">Weather <span id="weather-badge"></span></span>
+      <span class="k-value" id="kpi-weather-val" style="font-size:13px;">set location</span>
+    </div>
+  </div>
+
+  <div class="top-right">
+    <span class="clock" id="clock">--:--:--</span>
+    <div class="status-pill">
+      <div class="dot down" id="conn-dot"></div>
+      <span id="conn-text">Connecting…</span>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- ============ MAIN COLUMN ============ -->
+  <section class="main-col">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>3D Pit Map — Live Zone Risk</span>
+        <b id="map-zone-count">6 zones</b>
+      </div>
+      <div id="map-wrap">
+        <canvas id="map-canvas"></canvas>
+        <div class="map-focus-tag" id="map-focus-tag">FOCUS · ZONE A</div>
+        <div class="legend">
+          <div class="legend-row"><div class="swatch" style="background:var(--low)"></div>Low &lt;40</div>
+          <div class="legend-row"><div class="swatch" style="background:var(--moderate)"></div>Moderate 40–69</div>
+          <div class="legend-row"><div class="swatch" style="background:var(--high)"></div>High 70–84</div>
+          <div class="legend-row"><div class="swatch" style="background:var(--critical)"></div>Critical ≥85</div>
+        </div>
+        <div class="map-hint">drag rotate · scroll zoom · click a zone to focus</div>
+        <div class="map-controls">
+          <button class="map-btn" id="btn-demo" onclick="toggleDemo()" title="Feed a scripted rockfall scenario through the REAL pipeline (clearly labelled as simulation)">▶ demo scenario</button>
+          <button class="map-btn active" id="btn-autorotate" onclick="toggleAutoRotate()" title="Auto-rotate the pit (Space)">⟳ auto</button>
+          <button class="map-btn" onclick="resetView()" title="Reset camera (R)">reset view</button>
+          <button class="map-btn" onclick="mapSnapshot()" title="Save the 3D map view as a PNG image">📷</button>
+          <button class="map-btn" onclick="openModalHelp()" title="Shortcuts & demo guide (?)">?</button>
+        </div>
+        <div class="sim-banner" id="sim-banner" onclick="toggleDemo()" title="Click to stop">
+          <i></i>SIMULATION · DEMO DATA — CLICK TO STOP
+        </div>
+        <div id="zone-tooltip"></div>
+      </div>
+    </div>
+
+    <div class="zone-strip" id="zone-strip"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Zone Analytics</span>
+        <b id="analytics-zone-name">Zone A</b>
+      </div>
+      <div class="analytics-body">
+        <div class="gauge-cell">
+          <span class="gauge-sub">Fused Risk Score</span>
+          <div class="gauge-wrap">
+            <svg viewBox="0 0 150 96">
+              <path id="gauge-track" d="" fill="none" stroke="#1c2739" stroke-width="11" stroke-linecap="round"/>
+              <path id="gauge-arc" d="" fill="none" stroke="#34d399" stroke-width="11" stroke-linecap="round"/>
+            </svg>
+            <div class="gauge-val" id="gauge-val">--</div>
+          </div>
+          <span class="gauge-level risk-low" id="gauge-level">LOW</span>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-cell">
+            <div class="chart-title"><span>Risk Trend</span><b id="cv-risk-val">--</b></div>
+            <canvas class="chart-canvas" id="chart-risk"></canvas>
+          </div>
+          <div class="chart-cell">
+            <div class="chart-title"><span>Vibration RMS · m/s²</span><b id="cv-vib-val">--</b></div>
+            <canvas class="chart-canvas" id="chart-vib"></canvas>
+          </div>
+          <div class="chart-cell">
+            <div class="chart-title"><span>Tilt · degrees</span><b id="cv-tilt-val">--</b></div>
+            <canvas class="chart-canvas" id="chart-tilt"></canvas>
+          </div>
+          <div class="chart-cell">
+            <div class="chart-title"><span>Rainfall · mm</span><b id="cv-rain-val">--</b></div>
+            <canvas class="chart-canvas" id="chart-rain"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Mine Overview — All Zones</span>
+        <b>click a row to focus</b>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="ov-table">
+          <thead><tr><th>Zone</th><th>Risk</th><th>Level</th><th>Node</th><th>Cam</th><th>Crew</th><th>3D Survey</th></tr></thead>
+          <tbody id="ov-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Alert Log</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="map-btn" id="btn-sound" onclick="toggleSound()" title="Siren on High/Critical alerts">🔇 siren</button>
+          <b id="alert-count">0</b>
+        </div>
+      </div>
+      <div class="alerts-list" id="alerts-list">
+        <div class="empty-note">No alerts yet — system nominal.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SIDE COLUMN ============ -->
+  <aside class="side-col">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Live Sensor Feed</span>
+        <b id="focus-zone-name">Zone A</b>
+      </div>
+      <div class="sensor-grid" id="sensor-grid"></div>
+      <div id="camera-feed" class="camera-feed">
+        <div class="camera-placeholder"><div class="cam-icon">◎</div>No camera connected for this zone</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Device Connections</span>
+        <b id="device-count">0/6 · 0/6</b>
+      </div>
+      <div id="device-list"></div>
+      <div style="display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--line);">
+        <button class="btn primary" onclick="openConnectModal('sensor')" style="flex:1;">+ Sensor Node</button>
+        <button class="btn primary" onclick="openConnectModal('camera')" style="flex:1;">+ Camera</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Workforce In Pit</span>
+        <b id="wf-total">0</b>
+      </div>
+      <div id="workforce-list"></div>
+      <div id="wf-footnote" style="padding:9px 14px; border-top:1px solid var(--line); font-size:10.5px; color:var(--text-3); font-family:var(--mono); line-height:1.6;"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Drone Survey — 3D Reconstruction</span>
+        <b id="survey-count">0/6</b>
+      </div>
+      <div id="survey-list"></div>
+      <div style="display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--line); align-items:center;">
+        <button class="btn" style="flex:1;" onclick="openSurveyViewer(null)" title="Preview the survey viewer with a bundled sample reconstruction">◈ View sample reconstruction</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="ph-title"><span class="tick"></span>Alert Channels</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="map-btn" id="btn-notif" onclick="toggleBrowserNotifs()" title="Native push notifications on this device">🔕 push</button>
+          <b id="sub-count">0</b>
+        </div>
+      </div>
+      <div id="notify-summary" style="padding:10px 14px; font-size:11.5px; color:var(--text-2); line-height:1.6;"></div>
+      <div id="notify-log"></div>
+      <div style="display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--line);">
+        <button class="btn primary" style="flex:1;" onclick="openNotifyModal()">⚙ Manage channels</button>
+        <button class="btn" style="flex:1;" onclick="sendTestAlert()">Send test alert</button>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="footer-note">
+  ESP32 nodes → <b>POST /api/sensor-data</b> · payload {zone_id, vibration, tilt, rainfall, temperature, humidity} ·
+  Risk fusion: vibration RMS <b>40%</b> + tilt <b>25%</b> + rainfall <b>20%</b> + base slope risk <b>15%</b> ·
+  Risk ≥70% auto-requests a targeted drone survey for visual confirmation.
+</div>
+
+<div id="chart-tooltip"></div>
+<div id="toast"></div>
+
+<!-- hidden pickers for survey uploads -->
+<input type="file" id="pick-images" accept=".jpg,.jpeg,.png,.tif,.tiff" multiple style="display:none">
+<input type="file" id="pick-model" accept=".ply,.obj,.mtl,.glb,.gltf,.png,.jpg,.jpeg" multiple style="display:none">
+<input type="file" id="pick-camera" accept="image/*" capture="environment" style="display:none">
+
+<!-- Weather / mine location modal -->
+<div class="modal-overlay" id="modal-weather">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-head"><h3>☁ Weather Intelligence — mine location</h3><button class="modal-close" onclick="closeModal('modal-weather')">&times;</button></div>
+    <div class="modal-body">
+      <p class="modal-hint">Live weather (Open-Meteo, free, no API key) fills rainfall / temperature / humidity for every zone <b>without a physical sensor</b> — marked <b>☁ API</b>, never silently faked; a live ESP32 always overrides it. Heavy rain forecast in the next 6 h adds a pre-emptive risk boost (up to +10) to all zones, because rockfalls follow rain.</p>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="wx-lat" placeholder="latitude, e.g. 22.57" style="flex:1;">
+        <input type="text" id="wx-lon" placeholder="longitude, e.g. 88.36" style="flex:1;">
+      </div>
+      <input type="text" id="wx-place" placeholder="label, e.g. 'Jharia opencast, Dhanbad' (optional)" style="margin-top:6px; width:100%;">
+      <button class="btn" style="width:100%; margin-top:8px;" onclick="useMyLocation()">📍 Use this device's location</button>
+      <div id="wx-detail" class="modal-hint" style="margin-top:8px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="wx-toggle" onclick="toggleWeather()">Enable</button>
+      <button class="btn primary" onclick="saveWeather()">Save location</button>
+    </div>
+  </div>
+</div>
+
+<!-- Alert channels modal -->
+<div class="modal-overlay" id="modal-notify">
+  <div class="modal" style="max-width:540px;">
+    <div class="modal-head"><h3>📡 Alert Channels — message real people</h3><button class="modal-close" onclick="closeModal('modal-notify')">&times;</button></div>
+    <div class="modal-body">
+      <p class="modal-hint">When a zone crosses <b>High (≥70%)</b> or <b>Critical (≥85%)</b>, INNOVATRIX automatically messages every recipient below — Telegram, email, SMS or webhook — with a per-zone cooldown so nobody gets spammed. A level upgrade (High → Critical) always goes out instantly.</p>
+
+      <div>
+        <label>Recipients</label>
+        <div id="sub-list"></div>
+        <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+          <select id="sub-type" style="flex:0 0 108px;">
+            <option value="telegram">Telegram</option>
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+            <option value="webhook">Webhook</option>
+          </select>
+          <input type="text" id="sub-target" placeholder="chat ID / email / +91… / URL" style="flex:1; min-width:150px;">
+          <input type="text" id="sub-name" placeholder="name (optional)" style="flex:0 0 110px;">
+          <select id="sub-level" style="flex:0 0 96px;">
+            <option value="High">High+</option>
+            <option value="Critical">Critical only</option>
+            <option value="Moderate">Moderate+</option>
+          </select>
+          <button class="btn primary" onclick="addSubscriber()">+ Add</button>
+        </div>
+      </div>
+
+      <div>
+        <label>Telegram bot <span id="tg-status" style="font-weight:normal;"></span></label>
+        <input type="text" id="cfg-tg-token" placeholder="bot token from @BotFather (leave blank to keep saved token)">
+        <p class="modal-hint" style="margin-top:4px;">Free, 2-minute setup: message <b>@BotFather</b> → <code>/newbot</code> → paste the token here. Each recipient sends the bot one message, gets their chat ID from <b>@userinfobot</b>, and that ID goes in Recipients above.</p>
+      </div>
+
+      <div>
+        <label>Email (SMTP) <span id="em-status" style="font-weight:normal;"></span></label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="cfg-em-host" placeholder="smtp.gmail.com" style="flex:1;">
+          <input type="text" id="cfg-em-port" placeholder="465" style="flex:0 0 70px;">
+        </div>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <input type="text" id="cfg-em-user" placeholder="you@gmail.com" style="flex:1;">
+          <input type="password" id="cfg-em-pass" placeholder="app password (blank = keep saved)" style="flex:1;">
+        </div>
+        <p class="modal-hint" style="margin-top:4px;">Gmail: enable 2-step verification, then create an <b>App Password</b> (myaccount.google.com/apppasswords) — never your real password.</p>
+      </div>
+
+      <div>
+        <label>SMS via Twilio — optional <span id="sms-status" style="font-weight:normal;"></span></label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="cfg-sms-sid" placeholder="Account SID (blank = keep)" style="flex:1;">
+          <input type="password" id="cfg-sms-token" placeholder="Auth token (blank = keep)" style="flex:1;">
+        </div>
+        <input type="text" id="cfg-sms-from" placeholder="Twilio number, e.g. +14155551234" style="margin-top:6px; width:100%;">
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label style="margin:0;">Min level</label>
+        <select id="cfg-min-level">
+          <option>Moderate</option><option selected>High</option><option>Critical</option>
+        </select>
+        <label style="margin:0 0 0 12px;">Cooldown (sec)</label>
+        <input type="text" id="cfg-cooldown" style="flex:0 0 80px;" value="300">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="sendTestAlert()">📨 Send test to all</button>
+      <button class="btn primary" onclick="saveNotifyConfig()">Save settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Survey upload / process modal -->
+<div class="modal-overlay" id="modal-survey">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head"><h3 id="survey-modal-title">3D Survey Studio</h3><button class="modal-close" onclick="closeModal('modal-survey')">&times;</button></div>
+    <div class="modal-body">
+
+      <div class="stepper">
+        <div class="step" id="step-1"><span class="step-dot">1</span><span class="step-name">Capture</span></div>
+        <div class="step-bar" id="bar-1"></div>
+        <div class="step" id="step-2"><span class="step-dot">2</span><span class="step-name">Reconstruct</span></div>
+        <div class="step-bar" id="bar-2"></div>
+        <div class="step" id="step-3"><span class="step-dot">3</span><span class="step-name">View 3D</span></div>
+      </div>
+      <p class="modal-hint" id="survey-modal-status"></p>
+
+      <div class="dropzone" id="survey-dropzone"
+           ondragover="event.preventDefault(); this.classList.add('drag');"
+           ondragleave="this.classList.remove('drag');"
+           ondrop="surveyDrop(event)">
+        <div class="dz-icon">⬆</div>
+        <div class="dz-text"><b>Drag &amp; drop here</b> — slope photos (.jpg/.png)<br>or a ready 3D model (.ply / .glb / .obj + .mtl + textures)</div>
+        <div style="display:flex; gap:6px; margin-top:10px; width:100%;">
+          <button class="btn" style="flex:1;" onclick="pickImages()">🖼 Gallery…</button>
+          <button class="btn" style="flex:1;" onclick="pickCamera()">📷 Camera</button>
+          <button class="btn" style="flex:1;" onclick="pickModel()">⬆ Model…</button>
+        </div>
+      </div>
+      <p class="modal-hint" id="capture-count">No drone? Walk around the slope with your phone — aim for 30+ shots with 70–80% overlap. Each photo uploads instantly.</p>
+
+      <div>
+        <label style="display:flex; align-items:center; gap:8px;">Reconstruction engine (NodeODM)
+          <span id="odm-dot" class="dot"></span><span id="odm-status-text" style="font-weight:normal; font-size:11px; color:var(--text-3);">checking…</span>
+        </label>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="odm-url-input" placeholder="http://localhost:3001" value="http://localhost:3001" style="flex:1;" onchange="odmCheck()">
+          <button class="btn" onclick="odmCheck()" title="Re-check engine">↻</button>
+        </div>
+        <p class="modal-hint" style="margin-top:6px;">Engine not running? On the laptop: <code>docker run -ti -p 3001:3000 opendronemap/nodeodm</code> — free, one command. Opening this dashboard from a phone? Use <code>http://&lt;laptop-ip&gt;:3001</code>.</p>
+        <button class="btn primary" style="width:100%; margin-top:8px;" onclick="processSurvey()">⚙ Reconstruct 3D model</button>
+      </div>
+
+      <button class="btn" style="width:100%;" id="btn-view3d" onclick="closeModal('modal-survey'); openSurveyViewer(surveyModalZone)" disabled>◈ View this zone's 3D model</button>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-survey')">Close</button></div>
+  </div>
+</div>
+
+<!-- Fullscreen 3D survey viewer -->
+<div id="viewer-overlay">
+  <div class="viewer-top">
+    <div class="viewer-title" id="viewer-title">Survey Reconstruction<small id="viewer-sub"></small></div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+      <button class="btn active" id="vm-texture" onclick="viewerSetMode('texture')" title="Original photo texture / colors">🎨 texture</button>
+      <button class="btn" id="vm-slope" onclick="viewerSetMode('slope')" title="Heatmap of slope steepness — steep faces shed rock first">⛰ slope risk</button>
+      <button class="btn" id="vm-elev" onclick="viewerSetMode('elev')" title="Heatmap of elevation, toe to crest">▲ elevation</button>
+      <button class="btn" id="btn-measure" onclick="viewerToggleMeasure()" title="Click two points on the model to measure a distance">📏 measure</button>
+      <button class="btn" onclick="viewerSnapshot()" title="Save the current 3D view as a PNG image">📷 snapshot</button>
+      <button class="btn" onclick="viewerResetCam()">reset view</button>
+      <button class="btn" id="btn-wireframe" onclick="viewerToggleWire()">wireframe</button>
+      <button class="btn primary" onclick="closeSurveyViewer()">✕ Close</button>
+    </div>
+  </div>
+  <div id="viewer-canvas-wrap">
+    <canvas id="viewer-canvas"></canvas>
+    <div id="viewer-loading"><div class="spinner"></div><span id="viewer-loading-text">loading reconstruction…</span></div>
+    <div class="viewer-hud">drag rotate · right-drag pan · scroll zoom</div>
+    <div class="viewer-legend" id="viewer-legend"></div>
+  </div>
+</div>
+
+<!-- Help / shortcuts modal -->
+<div class="modal-overlay" id="modal-help">
+  <div class="modal">
+    <div class="modal-head"><h3>Quick Guide</h3><button class="modal-close" onclick="closeModal('modal-help')">&times;</button></div>
+    <div class="modal-body">
+      <div>
+        <label>Shortcuts</label>
+        <div class="help-row"><span>Focus Zone A–F</span><span><kbd>1</kbd>–<kbd>6</kbd></span></div>
+        <div class="help-row"><span>Run / stop demo scenario</span><span><kbd>D</kbd></span></div>
+        <div class="help-row"><span>Toggle auto-rotate</span><span><kbd>Space</kbd></span></div>
+        <div class="help-row"><span>Reset camera view</span><span><kbd>R</kbd></span></div>
+        <div class="help-row"><span>Toggle alert siren</span><span><kbd>S</kbd></span></div>
+        <div class="help-row"><span>This guide</span><span><kbd>?</kbd></span></div>
+      </div>
+      <div>
+        <label>60-second judge demo</label>
+        <p class="modal-hint">
+          1. Point at the 3D pit — hover zones to see live status, click one to focus.<br>
+          2. Hit <b style="color:var(--amber)">▶ demo scenario</b> — a scripted rockfall builds up in the focused zone <i>through the real ingestion pipeline</i> (clearly labelled SIMULATION).<br>
+          3. Watch risk climb on the gauge &amp; charts → alert fires → drone flies to the zone on the map.<br>
+          4. Open <b style="color:var(--amber)">+ Sensor Node</b> to show how real ESP32 hardware plugs in with zero code changes here.
+        </p>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn primary" onclick="closeModal('modal-help')">Got it</button></div>
+  </div>
+</div>
+
+<!-- Connect Sensor Node modal -->
+<div class="modal-overlay" id="modal-sensor">
+  <div class="modal">
+    <div class="modal-head"><h3>Connect Sensor Node</h3><button class="modal-close" onclick="closeModal('modal-sensor')">&times;</button></div>
+    <div class="modal-body">
+      <div>
+        <label>Zone this node monitors</label>
+        <select id="sensor-zone-select"></select>
+      </div>
+      <p class="modal-hint">Flash your ESP32 (<code>esp32/sensor_node.ino</code>) with these two values, then power it on — this card goes green automatically the moment its first reading arrives. No restart needed here.</p>
+      <div class="code-block" id="sensor-code-block"></div>
+      <p class="modal-hint" id="sensor-wait-note">Waiting for signal from this zone…</p>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-sensor')">Close</button></div>
+  </div>
+</div>
+
+<!-- Connect Camera modal -->
+<div class="modal-overlay" id="modal-camera">
+  <div class="modal">
+    <div class="modal-head"><h3>Connect Camera / Drone Feed</h3><button class="modal-close" onclick="closeModal('modal-camera')">&times;</button></div>
+    <div class="modal-body">
+      <div>
+        <label>Zone this camera covers</label>
+        <select id="camera-zone-select"></select>
+      </div>
+      <div>
+        <label>Stream URL (ESP32-CAM MJPEG or drone downlink)</label>
+        <input type="text" id="camera-url-input" placeholder="http://192.168.1.60/stream">
+      </div>
+      <p class="modal-hint">Leave this for later if the camera isn't wired yet — this is where you'll plug in its URL once it is. No code changes needed anywhere else.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-camera')">Cancel</button>
+      <button class="btn primary" onclick="submitCameraConnect()">Connect</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// STATE
+// =====================================================================
+const ZONE_IDS = ["A","B","C","D","E","F"];
+let zones = {};
+let focusZone = "A";
+let alerts = [];
+const HISTORY_CAP = 120;
+const histories = {};
+ZONE_IDS.forEach(id => histories[id] = { t:[], risk:[], vib:[], tilt:[], rain:[] });
+
+const LEVEL_COLOR = { Low:'#34d399', Moderate:'#fde047', High:'#fb923c', Critical:'#f43f5e' };
+const riskColorHex = l => LEVEL_COLOR[l] || LEVEL_COLOR.Low;
+const riskColor = l => parseInt(riskColorHex(l).slice(1), 16);
+const riskClass = l => ({Low:"risk-low",Moderate:"risk-moderate",High:"risk-high",Critical:"risk-critical"}[l]||"risk-low");
+const barClass  = l => ({Low:"bar-low",Moderate:"bar-moderate",High:"bar-high",Critical:"bar-critical"}[l]||"bar-low");
+const badgeClass = l => ({Low:"badge-low",Moderate:"badge-moderate",High:"badge-high",Critical:"badge-critical"}[l]||"badge-moderate");
+
+// clock
+setInterval(()=>{ document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB'); }, 1000);
+
+// =====================================================================
+// THREE.JS — terraced open-pit, 6 wedge zones x 4 benches, sensor masts
+// =====================================================================
+const canvas = document.getElementById('map-canvas');
+const wrap = document.getElementById('map-wrap');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x06090f, 0.016);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+
+function resize(){
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+scene.add(new THREE.HemisphereLight(0x93a7c0, 0x141210, 0.8));
+const dirLight = new THREE.DirectionalLight(0xeaf2ff, 1.1);
+dirLight.position.set(9, 16, 7);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(1024,1024);
+dirLight.shadow.camera.left = -14; dirLight.shadow.camera.right = 14;
+dirLight.shadow.camera.top = 14; dirLight.shadow.camera.bottom = -14;
+scene.add(dirLight);
+const rimLight = new THREE.DirectionalLight(0x22d3ee, 0.28);
+rimLight.position.set(-9, 5, -7);
+scene.add(rimLight);
+
+const pitGroup = new THREE.Group();
+scene.add(pitGroup);
+
+// surrounding ground ring
+const groundGeo = new THREE.RingGeometry(9.6, 16, 64);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x131a26, roughness:1, side:THREE.DoubleSide });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = 2.25;
+ground.receiveShadow = true;
+pitGroup.add(ground);
+
+// faint polar grid on the ground
+const grid = new THREE.PolarGridHelper(16, 12, 6, 48, 0x22303c, 0x1a242e);
+grid.position.y = 2.27;
+pitGroup.add(grid);
+
+// 4 benches
+const benchConfig = [
+  { rOuter: 9.5, rInner: 7.4, y: 1.55, h: 1.15 },
+  { rOuter: 7.25, rInner: 5.3, y: 0.45, h: 1.15 },
+  { rOuter: 5.15, rInner: 3.3, y: -0.65, h: 1.15 },
+  { rOuter: 3.15, rInner: 1.5, y: -1.75, h: 1.15 },
+];
+const zoneMeshes = {};
+ZONE_IDS.forEach(id => zoneMeshes[id] = []);
+
+function wedgeGeometry(rOuter, rInner, thetaStart, thetaLength, height){
+  const shape = new THREE.Shape();
+  const steps = 14;
+  for(let i=0;i<=steps;i++){
+    const a = thetaStart + (thetaLength*i/steps);
+    if(i===0) shape.moveTo(Math.cos(a)*rOuter, Math.sin(a)*rOuter);
+    else shape.lineTo(Math.cos(a)*rOuter, Math.sin(a)*rOuter);
+  }
+  for(let i=steps;i>=0;i--){
+    const a = thetaStart + (thetaLength*i/steps);
+    shape.lineTo(Math.cos(a)*rInner, Math.sin(a)*rInner);
+  }
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth:height, bevelEnabled:false });
+  geo.rotateX(-Math.PI/2);
+  return geo;
+}
+
+ZONE_IDS.forEach((id, i) => {
+  const thetaStart = (i/6) * Math.PI*2;
+  const thetaLength = (Math.PI*2)/6 - 0.035;
+  benchConfig.forEach((b, bi) => {
+    const geo = wedgeGeometry(b.rOuter, b.rInner, thetaStart, thetaLength, b.h);
+    const shade = 1 - bi*0.06;
+    const mat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0x34d399).multiplyScalar(shade),
+      roughness:0.88, metalness:0.04,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = b.y;
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.userData.zoneId = id;
+    pitGroup.add(mesh);
+    // bench edge outline
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo, 30),
+      new THREE.LineBasicMaterial({ color: 0x06090f, transparent:true, opacity:0.35 })
+    );
+    edges.position.y = b.y;
+    pitGroup.add(edges);
+    zoneMeshes[id].push(mesh);
+  });
+});
+
+// pit floor
+const floorGeo = new THREE.CylinderGeometry(1.45, 1.45, 0.25, 40);
+const floorMat = new THREE.MeshStandardMaterial({ color: 0x10161f, roughness:1 });
+const pitFloor = new THREE.Mesh(floorGeo, floorMat);
+pitFloor.position.y = -2.35;
+pitFloor.receiveShadow = true;
+pitGroup.add(pitFloor);
+
+// ---- zone labels: live canvas sprites with letter + score ----
+const zoneLabels = {};
+function buildLabel(id){
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const ctx = c.getContext('2d');
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest:false }));
+  sprite.scale.set(2.1, 1.05, 1);
+  zoneLabels[id] = { canvas:c, ctx, tex, sprite };
+  drawLabel(id, null);
+  return sprite;
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function drawLabel(id, z){
+  const { ctx, tex } = zoneLabels[id];
+  const color = z ? riskColorHex(z.risk_level) : '#5d7089';
+  ctx.clearRect(0,0,256,128);
+  ctx.fillStyle = 'rgba(8,12,20,0.9)';
+  roundRect(ctx, 6, 14, 244, 100, 18); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 4;
+  roundRect(ctx, 6, 14, 244, 100, 18); ctx.stroke();
+  ctx.fillStyle = '#e8eef7';
+  ctx.font = '800 44px Inter, monospace'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(id, 30, 66);
+  ctx.fillStyle = color;
+  ctx.font = '700 38px "JetBrains Mono", monospace'; ctx.textAlign='right';
+  ctx.fillText(z ? (z.risk_score.toFixed(0)+'%') : '--', 228, 66);
+  tex.needsUpdate = true;
+}
+ZONE_IDS.forEach((id, i) => {
+  const a = (i/6)*Math.PI*2 + (Math.PI/6);
+  const sprite = buildLabel(id);
+  // NOTE: extruded wedges are mirrored in Z (shape Y -> -Z after rotateX), so labels use -sin
+  sprite.position.set(Math.cos(a)*8.6, 3.9, -Math.sin(a)*8.6);
+  pitGroup.add(sprite);
+});
+
+// ---- sensor masts (one per zone on outer bench) ----
+const masts = {};
+ZONE_IDS.forEach((id, i) => {
+  const a = (i/6)*Math.PI*2 + (Math.PI/6);
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, 1.0, 8),
+    new THREE.MeshStandardMaterial({ color: 0x4a5865, roughness:0.6 })
+  );
+  pole.position.y = 0.5;
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0x2c3745, emissive: 0x000000 })
+  );
+  head.position.y = 1.05;
+  g.add(pole); g.add(head);
+  g.position.set(Math.cos(a)*8.4, 2.7, -Math.sin(a)*8.4);
+  pitGroup.add(g);
+  masts[id] = head;
+});
+
+// ---- survey drone (flies to a zone when a drone survey is auto-requested) ----
+const drone = new THREE.Group();
+{
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x333d48, roughness:0.5, metalness:0.4 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.34), bodyMat);
+  drone.add(body);
+  const armMat = new THREE.MeshStandardMaterial({ color: 0x222a33 });
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz]) => {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.035, 0.06), armMat);
+    arm.position.set(sx*0.24, 0.02, sz*0.24);
+    arm.rotation.y = Math.atan2(sz, sx);
+    drone.add(arm);
+    const rotor = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.16, 0.015, 16),
+      new THREE.MeshStandardMaterial({ color: 0xf59e0b, transparent:true, opacity:0.55 })
+    );
+    rotor.position.set(sx*0.36, 0.075, sz*0.36);
+    rotor.userData.isRotor = true;
+    drone.add(rotor);
+  });
+  const beacon = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 8, 8),
+    new THREE.MeshStandardMaterial({ color: 0xe11d48, emissive: 0xe11d48, emissiveIntensity: 1 })
+  );
+  beacon.position.y = 0.09;
+  beacon.userData.isBeacon = true;
+  drone.add(beacon);
+  drone.visible = false;
+  drone.position.set(0, -2, 0);
+  pitGroup.add(drone);
+}
+let droneTargetZone = null; // zone id the drone should hover over
+function zoneWorldPos(id, r=6.5, y=3.2){
+  const i = ZONE_IDS.indexOf(id);
+  const a = (i/6)*Math.PI*2 + (Math.PI/6);
+  return new THREE.Vector3(Math.cos(a)*r, y, -Math.sin(a)*r);
+}
+
+// ---- camera orbit / drag / zoom ----
+let isDragging=false, prevX=0, prevY=0, rotY=0.5, rotX=0.42, camDist=17;
+let autoRotate = true, lastInteract = 0;
+canvas.addEventListener('mousedown', e=>{ isDragging=true; prevX=e.clientX; prevY=e.clientY; lastInteract=Date.now(); });
+window.addEventListener('mouseup', ()=> isDragging=false);
+window.addEventListener('mousemove', e=>{
+  if(!isDragging) return;
+  rotY += (e.clientX-prevX)*0.006;
+  rotX = Math.max(0.08, Math.min(1.1, rotX + (e.clientY-prevY)*0.004));
+  prevX=e.clientX; prevY=e.clientY; lastInteract=Date.now();
+});
+canvas.addEventListener('touchstart', e=>{ isDragging=true; prevX=e.touches[0].clientX; prevY=e.touches[0].clientY; lastInteract=Date.now(); }, {passive:true});
+window.addEventListener('touchend', ()=> isDragging=false);
+window.addEventListener('touchmove', e=>{
+  if(!isDragging) return;
+  rotY += (e.touches[0].clientX-prevX)*0.006;
+  rotX = Math.max(0.08, Math.min(1.1, rotX + (e.touches[0].clientY-prevY)*0.004));
+  prevX=e.touches[0].clientX; prevY=e.touches[0].clientY; lastInteract=Date.now();
+}, {passive:true});
+canvas.addEventListener('wheel', e=>{
+  camDist = Math.max(8, Math.min(30, camDist + e.deltaY*0.012));
+  lastInteract = Date.now();
+}, {passive:true});
+
+function toggleAutoRotate(){
+  autoRotate = !autoRotate;
+  document.getElementById('btn-autorotate').classList.toggle('active', autoRotate);
+}
+window.toggleAutoRotate = toggleAutoRotate;
+function resetView(){ rotY=0.5; rotX=0.42; camDist=17; lastInteract=Date.now(); }
+window.resetView = resetView;
+function mapSnapshot(){
+  renderer.render(scene, camera); // fresh frame — buffer is not preserved between frames
+  canvasToPngDownload(renderer.domElement, `innovatrix-pit-map-${Date.now()}.png`);
+  showToast('📷 Map snapshot saved as PNG');
+}
+window.mapSnapshot = mapSnapshot;
+
+// ---- click-to-focus via raycaster ----
+const raycaster = new THREE.Raycaster();
+const mouseNDC = new THREE.Vector2();
+let downAt = null;
+canvas.addEventListener('pointerdown', e=>{ downAt = {x:e.clientX, y:e.clientY}; });
+canvas.addEventListener('pointerup', e=>{
+  if(!downAt) return;
+  const moved = Math.hypot(e.clientX-downAt.x, e.clientY-downAt.y);
+  downAt = null;
+  if(moved > 6) return; // was a drag, not a click
+  const r = canvas.getBoundingClientRect();
+  mouseNDC.x = ((e.clientX - r.left)/r.width)*2 - 1;
+  mouseNDC.y = -((e.clientY - r.top)/r.height)*2 + 1;
+  raycaster.setFromCamera(mouseNDC, camera);
+  const hits = raycaster.intersectObjects(pitGroup.children, false);
+  for(const h of hits){
+    if(h.object.userData && h.object.userData.zoneId){
+      setFocus(h.object.userData.zoneId, true);
+      return;
+    }
+  }
+});
+
+// ---- hover: highlight zone + tooltip card ----
+const zoneTooltipEl = document.getElementById('zone-tooltip');
+let hoveredZone = null, hoverPending = false;
+canvas.addEventListener('pointermove', e=>{
+  if(hoverPending) return;
+  hoverPending = true;
+  requestAnimationFrame(()=>{
+    hoverPending = false;
+    const r = canvas.getBoundingClientRect();
+    mouseNDC.x = ((e.clientX - r.left)/r.width)*2 - 1;
+    mouseNDC.y = -((e.clientY - r.top)/r.height)*2 + 1;
+    raycaster.setFromCamera(mouseNDC, camera);
+    const hits = raycaster.intersectObjects(pitGroup.children, false);
+    let zid = null;
+    for(const h of hits){
+      if(h.object.userData && h.object.userData.zoneId){ zid = h.object.userData.zoneId; break; }
+    }
+    if(zid !== hoveredZone){
+      hoveredZone = zid;
+      canvas.style.cursor = zid ? 'pointer' : 'grab';
+    }
+    if(zid){
+      const z = zones[zid];
+      zoneTooltipEl.innerHTML = z
+        ? `<div class="zt-name" style="color:${riskColorHex(z.risk_level)}">Zone ${zid} — ${z.name.split(' - ')[1]}</div>
+           <span class="zt-dim">risk</span> <b style="color:${riskColorHex(z.risk_level)}">${z.risk_score}% ${z.risk_level}</b><br>
+           <span class="zt-dim">node</span> ${z.sensor_connected?'<span style="color:var(--low)">● online</span>':'<span class="zt-dim">○ offline</span>'}
+           &nbsp;<span class="zt-dim">cam</span> ${z.camera_connected?'<span style="color:var(--low)">● live</span>':'<span class="zt-dim">○ none</span>'}
+           &nbsp;<span class="zt-dim">crew</span> ${z.workers ? `<b${(z.risk_level==='High'||z.risk_level==='Critical')?' style="color:var(--critical)"':''}>👷 ${z.workers}</b>` : '<span class="zt-dim">0</span>'}
+           ${z.drone_requested?'<br><span style="color:var(--amber)">✈ drone survey en route</span>':''}
+           <br><span class="zt-dim">click to focus</span>`
+        : `<div class="zt-name">Zone ${zid}</div><span class="zt-dim">offline — no data yet<br>click to focus</span>`;
+      zoneTooltipEl.style.display = 'block';
+      const wr = wrap.getBoundingClientRect();
+      let tx = e.clientX - wr.left + 16, ty = e.clientY - wr.top + 10;
+      if(tx > wr.width - 190) tx = e.clientX - wr.left - 190;
+      if(ty > wr.height - 120) ty = e.clientY - wr.top - 110;
+      zoneTooltipEl.style.left = tx + 'px';
+      zoneTooltipEl.style.top = ty + 'px';
+    } else {
+      zoneTooltipEl.style.display = 'none';
+    }
+  });
+});
+canvas.addEventListener('pointerleave', ()=>{ hoveredZone=null; zoneTooltipEl.style.display='none'; canvas.style.cursor='grab'; });
+
+// smooth fly-to when focusing a zone
+let flyTarget = null; // {rotY}
+function flyToZone(id){
+  const i = ZONE_IDS.indexOf(id);
+  const a = (i/6)*Math.PI*2 + (Math.PI/6);
+  // wedge center sits at world (cos a, -sin a); camera azimuth: x=sin(rotY), z=cos(rotY)
+  let target = Math.atan2(Math.cos(a), -Math.sin(a));
+  // shortest path
+  while(target - rotY > Math.PI) target -= Math.PI*2;
+  while(target - rotY < -Math.PI) target += Math.PI*2;
+  flyTarget = { rotY: target };
+  lastInteract = Date.now();
+}
+
+function updateCamera(t){
+  if(flyTarget){
+    const d = flyTarget.rotY - rotY;
+    if(Math.abs(d) < 0.01){ rotY = flyTarget.rotY; flyTarget = null; }
+    else rotY += d * 0.08;
+  } else if(autoRotate && !isDragging && Date.now()-lastInteract > 4000) rotY += 0.0016;
+  camera.position.x = Math.sin(rotY)*camDist*Math.cos(rotX);
+  camera.position.z = Math.cos(rotY)*camDist*Math.cos(rotX);
+  camera.position.y = Math.sin(rotX)*camDist + 2.5;
+  camera.lookAt(0, 0.4, 0);
+}
+
+// pulse for high-risk zones + connected mast blink
+function animate(t){
+  requestAnimationFrame(animate);
+  const pulse = (Math.sin(t*0.004)+1)/2; // 0..1
+  ZONE_IDS.forEach(id => {
+    const z = zones[id];
+    if(z && (z.risk_level==='High' || z.risk_level==='Critical')){
+      const inten = z.risk_level==='Critical' ? 0.5 : 0.28;
+      zoneMeshes[id].forEach(m => { m.material.emissiveIntensity = pulse*inten; });
+    }
+    const mast = masts[id];
+    if(z && z.sensor_connected){
+      mast.material.emissive.setHex(0x34d399);
+      mast.material.emissiveIntensity = 0.5 + pulse*0.5;
+      mast.material.color.setHex(0x34d399);
+    } else {
+      mast.material.emissive.setHex(0x000000);
+      mast.material.color.setHex(0x2c3745);
+    }
+  });
+
+  // ---- drone flight ----
+  const requested = ZONE_IDS.filter(id => zones[id] && zones[id].drone_requested)
+    .sort((a,b)=> (zones[b].risk_score||0)-(zones[a].risk_score||0));
+  droneTargetZone = requested[0] || null;
+  if(droneTargetZone){
+    if(!drone.visible){ drone.visible = true; drone.position.set(0, -1.8, 0); }
+    const tp = zoneWorldPos(droneTargetZone, 6.5, 3.1);
+    tp.y += Math.sin(t*0.003)*0.15; // hover bob
+    drone.position.lerp(tp, 0.03);
+    drone.rotation.y = t*0.0006;
+  } else if(drone.visible){
+    const home = new THREE.Vector3(0, -1.8, 0);
+    drone.position.lerp(home, 0.04);
+    if(drone.position.distanceTo(home) < 0.25) drone.visible = false;
+  }
+  if(drone.visible){
+    drone.children.forEach(c => {
+      if(c.userData.isRotor) c.rotation.y = t*0.06;
+      if(c.userData.isBeacon) c.material.emissiveIntensity = 0.4 + pulse*1.2;
+    });
+  }
+
+  updateCamera(t);
+  renderer.render(scene, camera);
+}
+resize();
+requestAnimationFrame(animate);
+
+function applyZoneColor(id, level){
+  const base = new THREE.Color(riskColor(level));
+  zoneMeshes[id].forEach((m, bi) => {
+    m.material.color.copy(base).multiplyScalar(1 - bi*0.06);
+    if(level==='High'){ m.material.emissive.setHex(0xfb923c); }
+    else if(level==='Critical'){ m.material.emissive.setHex(0xf43f5e); }
+    else { m.material.emissive.setHex(0x000000); m.material.emissiveIntensity = 0; }
+  });
+}
+
+// =====================================================================
+// CHARTS — lightweight canvas line charts with hover tooltip
+// =====================================================================
+const tooltipEl = document.getElementById('chart-tooltip');
+class MiniChart {
+  constructor(canvasId, color, opts={}){
+    this.cv = document.getElementById(canvasId);
+    this.ctx = this.cv.getContext('2d');
+    this.color = color;
+    this.fixedMax = opts.fixedMax || null;
+    this.unit = opts.unit || '';
+    this.decimals = opts.decimals ?? 1;
+    this.data = []; this.times = [];
+    this.hoverIdx = -1;
+    this.cv.addEventListener('mousemove', e => this.onHover(e));
+    this.cv.addEventListener('mouseleave', () => { this.hoverIdx=-1; tooltipEl.style.display='none'; this.draw(); });
+  }
+  setData(times, values){ this.times = times; this.data = values; this.draw(); }
+  onHover(e){
+    if(!this.data.length) return;
+    const r = this.cv.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const n = this.data.length;
+    const idx = Math.round((x / r.width) * (n-1));
+    this.hoverIdx = Math.max(0, Math.min(n-1, idx));
+    this.draw();
+    const v = this.data[this.hoverIdx];
+    tooltipEl.innerHTML = `<b style="color:${this.color}">${v.toFixed(this.decimals)}${this.unit}</b><br><span class="tt-time">${this.times[this.hoverIdx]}</span>`;
+    tooltipEl.style.display = 'block';
+    tooltipEl.style.left = (e.clientX + 12) + 'px';
+    tooltipEl.style.top = (e.clientY - 14) + 'px';
+  }
+  draw(){
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    const w = this.cv.clientWidth, h = this.cv.clientHeight;
+    if(this.cv.width !== w*dpr){ this.cv.width = w*dpr; this.cv.height = h*dpr; }
+    const ctx = this.ctx;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+    for(let gy=0; gy<=2; gy++){
+      const y = 4 + (h-10)*gy/2;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+    const d = this.data;
+    if(d.length < 2){
+      ctx.fillStyle = 'rgba(159,178,200,0.35)';
+      ctx.font = '10px "JetBrains Mono", monospace'; ctx.textAlign='center';
+      ctx.fillText('awaiting data…', w/2, h/2+3);
+      return;
+    }
+    let max = this.fixedMax ?? Math.max(...d)*1.15;
+    if(max <= 0) max = 1;
+    const px = i => (i/(d.length-1)) * (w-2) + 1;
+    const py = v => h-6 - (Math.min(v,max)/max) * (h-14);
+    // area fill
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(d[0]));
+    for(let i=1;i<d.length;i++) ctx.lineTo(px(i), py(d[i]));
+    ctx.lineTo(px(d.length-1), h-2); ctx.lineTo(px(0), h-2); ctx.closePath();
+    const gradient = ctx.createLinearGradient(0,0,0,h);
+    gradient.addColorStop(0, this.color + '3a');
+    gradient.addColorStop(1, this.color + '00');
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    // line
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(d[0]));
+    for(let i=1;i<d.length;i++) ctx.lineTo(px(i), py(d[i]));
+    ctx.strokeStyle = this.color; ctx.lineWidth = 2;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.stroke();
+    // latest point
+    const li = d.length-1;
+    ctx.beginPath(); ctx.arc(px(li), py(d[li]), 3, 0, Math.PI*2);
+    ctx.fillStyle = this.color; ctx.fill();
+    ctx.beginPath(); ctx.arc(px(li), py(d[li]), 5, 0, Math.PI*2);
+    ctx.strokeStyle = this.color + '55'; ctx.lineWidth=2; ctx.stroke();
+    // hover crosshair
+    if(this.hoverIdx >= 0 && this.hoverIdx < d.length){
+      const hx = px(this.hoverIdx), hy = py(d[this.hoverIdx]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth=1;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(hx, 2); ctx.lineTo(hx, h-2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(hx, hy, 3.5, 0, Math.PI*2);
+      ctx.fillStyle = '#fff'; ctx.fill();
+    }
+  }
+}
+const chartRisk = new MiniChart('chart-risk', '#fbbf24', { fixedMax:100, unit:'%', decimals:1 });
+const chartVib  = new MiniChart('chart-vib',  '#f43f5e', { unit:' m/s²', decimals:3 });
+const chartTilt = new MiniChart('chart-tilt', '#22d3ee', { unit:'°', decimals:2 });
+const chartRain = new MiniChart('chart-rain', '#60a5fa', { unit:' mm', decimals:1 });
+window.addEventListener('resize', () => renderCharts());
+
+function renderCharts(){
+  const hy = histories[focusZone];
+  chartRisk.setData(hy.t, hy.risk);
+  chartVib.setData(hy.t, hy.vib);
+  chartTilt.setData(hy.t, hy.tilt);
+  chartRain.setData(hy.t, hy.rain);
+  const z = zones[focusZone];
+  document.getElementById('cv-risk-val').textContent = z ? z.risk_score+'%' : '--';
+  document.getElementById('cv-vib-val').textContent  = z ? z.vibration_rms : '--';
+  document.getElementById('cv-tilt-val').textContent = z ? z.tilt+'°' : '--';
+  document.getElementById('cv-rain-val').textContent = z ? z.rainfall : '--';
+}
+
+// =====================================================================
+// RISK GAUGE (SVG arc)
+// =====================================================================
+function polarXY(cx, cy, r, angDeg){
+  const a = (angDeg-180) * Math.PI/180;
+  return [cx + r*Math.cos(a), cy + r*Math.sin(a)];
+}
+function arcPath(cx, cy, r, fromDeg, toDeg){
+  const [x1,y1] = polarXY(cx,cy,r,fromDeg);
+  const [x2,y2] = polarXY(cx,cy,r,toDeg);
+  const large = (toDeg-fromDeg) > 180 ? 1 : 0;
+  return `M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
+document.getElementById('gauge-track').setAttribute('d', arcPath(75, 86, 62, 0, 180));
+function renderGauge(){
+  const z = zones[focusZone];
+  const score = z ? z.risk_score : 0;
+  const level = z ? z.risk_level : 'Low';
+  const arc = document.getElementById('gauge-arc');
+  const deg = Math.max(0.5, (score/100)*180);
+  arc.setAttribute('d', arcPath(75, 86, 62, 0, deg));
+  arc.setAttribute('stroke', riskColorHex(level));
+  const valEl = document.getElementById('gauge-val');
+  valEl.textContent = z ? score.toFixed(1)+'%' : '--';
+  valEl.style.color = riskColorHex(level);
+  const lvlEl = document.getElementById('gauge-level');
+  lvlEl.textContent = level.toUpperCase();
+  lvlEl.className = 'gauge-level ' + riskClass(level);
+}
+
+// =====================================================================
+// UI RENDER
+// =====================================================================
+function renderZoneStrip(){
+  const el = document.getElementById('zone-strip');
+  el.innerHTML = ZONE_IDS.map(id => {
+    const z = zones[id];
+    const focused = id === focusZone ? ' focused' : '';
+    if(!z) return `<div class="zone-tile${focused}" onclick="setFocus('${id}')">
+      <div class="risk-bar"><i style="width:0%"></i></div>
+      <div class="zid">ZONE ${id}</div><div class="zscore" style="color:var(--text-3)">--</div>
+      <div class="zoff">offline</div></div>`;
+    return `<div class="zone-tile${focused}" onclick="setFocus('${id}')">
+      <div class="risk-bar"><i class="${barClass(z.risk_level)}" style="width:${z.risk_score}%"></i></div>
+      <div class="zid">ZONE ${id}</div>
+      <div class="zscore ${riskClass(z.risk_level)}">${z.risk_score}%</div>
+      <div class="zlabel ${riskClass(z.risk_level)}">${z.risk_level}${z.drone_requested ? ' · ✈' : ''}</div>
+      ${z.workers ? `<div class="zoff">👷 ${z.workers}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderKPIs(){
+  const vals = Object.values(zones);
+  const highest = vals.length ? vals.reduce((a,b)=> a.risk_score>b.risk_score?a:b) : null;
+  const avg = vals.length ? (vals.reduce((s,z)=>s+z.risk_score,0)/vals.length).toFixed(1) : '--';
+  const droneCount = vals.filter(z=>z.drone_requested).length;
+  const nodes = vals.filter(z=>z.sensor_connected).length;
+  const cams = vals.filter(z=>z.camera_connected).length;
+  const hEl = document.getElementById('kpi-highest');
+  hEl.innerHTML = highest ? `${highest.id} · ${highest.risk_score}%` : '--';
+  hEl.className = 'k-value ' + (highest ? riskClass(highest.risk_level) : '');
+  document.getElementById('kpi-avg').textContent = avg + (vals.length?'%':'');
+  document.getElementById('kpi-nodes').innerHTML = `${nodes}<small>/6</small>`;
+  document.getElementById('kpi-cams').innerHTML = `${cams}<small>/6</small>`;
+  const dEl = document.getElementById('kpi-drones');
+  dEl.textContent = droneCount;
+  dEl.style.color = droneCount>0 ? 'var(--amber)' : 'var(--text)';
+  document.getElementById('kpi-alerts').textContent = alerts.length;
+}
+
+function renderSensors(){
+  const z = zones[focusZone];
+  document.getElementById('focus-zone-name').textContent = z ? z.name : 'Zone ' + focusZone;
+  document.getElementById('analytics-zone-name').textContent = z ? z.name : 'Zone ' + focusZone;
+  document.getElementById('map-focus-tag').textContent = 'FOCUS · ZONE ' + focusZone;
+  const el = document.getElementById('sensor-grid');
+  if(!z){
+    el.innerHTML = '<div class="empty-note" style="grid-column:1/-1;">Waiting for first reading from this zone…</div>';
+    return;
+  }
+  const cells = [
+    ['Vibration RMS', z.vibration_rms, 'm/s²'],
+    ['Vibration inst.', z.vibration, 'm/s²'],
+    ['Tilt angle', z.tilt, '°'],
+    ['Rainfall', z.rainfall, 'mm'],
+    ['Temperature', z.temperature, '°C'],
+    ['Humidity', z.humidity, '%'],
+    ['Drone', z.drone_requested ? 'REQUESTED' : 'Standby', ''],
+    ['Weather src', z.weather_source === 'api' ? '☁ API' : (z.weather_source === 'sensor' ? '📡 sensor' : '--'), ''],
+  ];
+  el.innerHTML = cells.map(([n,v,u])=>`<div class="sensor-cell">
+    <div class="s-label">${n}</div>
+    <div class="s-value">${v} <small>${u}</small></div>
+  </div>`).join('');
+}
+
+function renderAlerts(){
+  document.getElementById('alert-count').textContent = alerts.length;
+  document.getElementById('kpi-alerts').textContent = alerts.length;
+  const el = document.getElementById('alerts-list');
+  if(!alerts.length){ el.innerHTML = '<div class="empty-note">No alerts yet — system nominal.</div>'; return; }
+  el.innerHTML = alerts.slice(0,30).map(a => `
+    <div class="alert-item">
+      <span class="alert-badge ${badgeClass(a.level)}">${a.level}</span>
+      <div class="alert-body">
+        <div class="msg"><b>${a.zone_name}</b> — ${a.reason} (risk ${a.score}%)</div>
+        <div class="meta">${a.date} ${a.time}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderCamera(){
+  const z = zones[focusZone];
+  const el = document.getElementById('camera-feed');
+  if(z && z.camera_connected && z.camera_url){
+    el.innerHTML = `<div class="rec-tag"><i></i>LIVE</div><img src="${z.camera_url}" onerror="this.parentElement.innerHTML='<div class=camera-placeholder>Feed unreachable — check stream URL</div>'">`;
+  } else {
+    el.innerHTML = `<div class="camera-placeholder"><div class="cam-icon">◎</div>No camera connected for this zone</div>`;
+  }
+}
+
+function renderDevices(){
+  const el = document.getElementById('device-list');
+  let sensorsOn = 0, camsOn = 0;
+  el.innerHTML = ZONE_IDS.map(id => {
+    const z = zones[id];
+    const sOn = !!(z && z.sensor_connected);
+    const cOn = !!(z && z.camera_connected);
+    if(sOn) sensorsOn++;
+    if(cOn) camsOn++;
+    const sub = sOn ? (z.sensor_ip || 'receiving data') : 'no node yet';
+    return `<div class="device-row">
+      <div class="device-left">
+        <div class="device-zone-chip">${id}</div>
+        <div style="min-width:0;">
+          <div>${z ? z.name.split(' - ')[1] : 'Zone '+id}</div>
+          <div class="device-sub">${sub}</div>
+        </div>
+      </div>
+      <div class="conn-badges">
+        <div class="conn-badge ${sOn?'on':''}"><i></i>node</div>
+        <div class="conn-badge ${cOn?'on':''}"><i></i>cam</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('device-count').textContent = `${sensorsOn}/6 · ${camsOn}/6`;
+  document.getElementById('kpi-nodes').innerHTML = `${sensorsOn}<small>/6</small>`;
+  document.getElementById('kpi-cams').innerHTML = `${camsOn}<small>/6</small>`;
+}
+
+function renderWorkforce(){
+  const el = document.getElementById('workforce-list');
+  if(!el) return;
+  let total = 0, exposed = 0;
+  el.innerHTML = ZONE_IDS.map(id => {
+    const z = zones[id];
+    const n = (z && z.workers) ? z.workers : 0;
+    total += n;
+    const danger = z && n > 0 && (z.risk_level === 'High' || z.risk_level === 'Critical');
+    if(danger) exposed += n;
+    return `<div class="device-row">
+      <div class="device-left">
+        <div class="device-zone-chip">${id}</div>
+        <div style="min-width:0;">
+          <div>${z ? z.name.split(' - ')[1] : 'Zone ' + id}</div>
+          <div class="device-sub">${n === 0 ? 'no crew checked in' : n + ' worker' + (n>1?'s':'') + ' on site'}</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+        ${danger ? '<span class="wf-danger">⚠ evacuate</span>' : ''}
+        <button class="wf-btn" onclick="adjustWorkers('${id}', -1)" title="Crew member checks out">−</button>
+        <span class="wf-count ${danger ? 'risk-critical' : ''}">${n}</span>
+        <button class="wf-btn" onclick="adjustWorkers('${id}', 1)" title="Crew member checks in">+</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('wf-total').textContent = total;
+  const kpi = document.getElementById('kpi-workers');
+  if(kpi){
+    kpi.textContent = exposed > 0 ? `${total} · ⚠${exposed}` : total;
+    kpi.className = 'k-value' + (exposed > 0 ? ' risk-critical' : '');
+  }
+  document.getElementById('wf-footnote').innerHTML = exposed > 0
+    ? `<span style="color:var(--critical); font-weight:700;">⚠ ${exposed} worker${exposed>1?'s':''} in High/Critical zones — evacuate now</span>`
+    : (total > 0 ? `${total} on site · all in safe zones` : 'Use + / − as crews check in and out of each zone. High-risk zones with crew inside are flagged for evacuation.');
+}
+
+function renderOverview(){
+  const tb = document.getElementById('ov-body');
+  if(!tb) return;
+  tb.innerHTML = ZONE_IDS.map(id => {
+    const z = zones[id];
+    const s = surveyData[id];
+    const risk = z ? z.risk_score : 0;
+    const lvl = z ? z.risk_level : 'Low';
+    const survey = (s && s.status === 'complete')
+      ? `<span style="color:var(--low); cursor:pointer;" onclick="event.stopPropagation(); openSurveyViewer('${id}')">◈ 3D ready</span>`
+      : (s && s.status === 'processing' ? '<span style="color:var(--cyan);">processing…</span>'
+      : (s && s.status === 'images_uploaded' ? `<span style="color:var(--moderate);">${s.images} imgs</span>`
+      : '<span style="color:var(--text-3);">—</span>'));
+    return `<tr class="${id === focusZone ? 'focused' : ''}" onclick="setFocus('${id}', true)">
+      <td><b>${id}</b> <span style="color:var(--text-3); font-family:var(--sans);">${z ? z.name.split(' - ')[1] : ''}</span></td>
+      <td><span class="ov-risk-bar"><i class="${barClass(lvl)}" style="width:${Math.min(risk,100)}%"></i></span><b class="${riskClass(lvl)}">${z ? risk + '%' : '--'}</b></td>
+      <td><span class="alert-badge ${badgeClass(lvl)}">${lvl}</span></td>
+      <td><span class="ov-dot ${z && z.sensor_connected ? 'on' : ''}"></span></td>
+      <td><span class="ov-dot ${z && z.camera_connected ? 'on' : ''}"></span></td>
+      <td>${z && z.workers ? '👷 ' + z.workers : '<span style="color:var(--text-3);">0</span>'}</td>
+      <td>${survey}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function adjustWorkers(zid, delta){
+  try{
+    const res = await fetch(`/api/workers/${zid}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ delta })
+    });
+    if(!res.ok) showToast('Could not update headcount');
+  }catch(e){ showToast('Backend unreachable — headcount not saved'); }
+}
+window.adjustWorkers = adjustWorkers;
+
+function setFocus(id, fly=false){
+  focusZone = id;
+  renderZoneStrip(); renderSensors(); renderCamera(); renderCharts(); renderGauge(); renderOverview();
+  if(fly) flyToZone(id);
+}
+window.setFocus = setFocus;
+
+// =====================================================================
+// MODALS
+// =====================================================================
+function openConnectModal(kind){
+  if(kind === 'sensor'){
+    const sel = document.getElementById('sensor-zone-select');
+    sel.innerHTML = ZONE_IDS.map(id => `<option value="${id}">Zone ${id}${zones[id]?' — '+zones[id].name.split(' - ')[1]:''}</option>`).join('');
+    sel.value = focusZone;
+    updateSensorCode();
+    sel.onchange = updateSensorCode;
+    document.getElementById('modal-sensor').classList.add('open');
+  } else {
+    const sel = document.getElementById('camera-zone-select');
+    sel.innerHTML = ZONE_IDS.map(id => `<option value="${id}">Zone ${id}${zones[id]?' — '+zones[id].name.split(' - ')[1]:''}</option>`).join('');
+    sel.value = focusZone;
+    document.getElementById('camera-url-input').value = '';
+    document.getElementById('modal-camera').classList.add('open');
+  }
+}
+window.openConnectModal = openConnectModal;
+
+function updateSensorCode(){
+  const zid = document.getElementById('sensor-zone-select').value;
+  const base = `${location.protocol}//${location.host}`;
+  document.getElementById('sensor-code-block').textContent =
+`const char* SERVER_URL = "${base}/api/sensor-data";
+const char* ZONE_ID    = "${zid}";`;
+  const z = zones[zid];
+  document.getElementById('sensor-wait-note').textContent = (z && z.sensor_connected)
+    ? `✓ Connected — receiving live data from ${z.sensor_ip}`
+    : 'Waiting for signal from this zone…';
+}
+window.updateSensorCode = updateSensorCode;
+
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+window.closeModal = closeModal;
+
+async function submitCameraConnect(){
+  const zone_id = document.getElementById('camera-zone-select').value;
+  const stream_url = document.getElementById('camera-url-input').value.trim();
+  if(!stream_url){ alert('Enter the camera stream URL first.'); return; }
+  try{
+    const res = await fetch('/api/camera/connect', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ zone_id, stream_url })
+    });
+    if(res.ok){ closeModal('modal-camera'); }
+    else { alert('Could not connect camera — check the zone and URL.'); }
+  } catch(e){ alert('Backend unreachable.'); }
+}
+window.submitCameraConnect = submitCameraConnect;
+
+// =====================================================================
+// DRONE SURVEY — uploads, NodeODM processing, 3D viewer
+// =====================================================================
+let surveyData = {};          // zone_id -> survey object
+let sampleModelUrl = null;
+let surveyModalZone = null;
+
+async function fetchSurveys(){
+  try{
+    const res = await fetch('/api/surveys');
+    const j = await res.json();
+    (j.surveys||[]).forEach(s => surveyData[s.zone_id] = s);
+    sampleModelUrl = j.sample_model_url;
+    renderSurveys();
+  }catch(e){}
+}
+
+function surveyStatusChip(s){
+  if(!s || s.status==='none') return '<span class="survey-status">no survey</span>';
+  if(s.status==='images_uploaded') return `<span class="survey-status st-images">${s.images} images</span>`;
+  if(s.status==='processing') return '<span class="survey-status st-processing">processing</span>';
+  if(s.status==='complete') return '<span class="survey-status st-complete">3D ready</span>';
+  if(s.status==='failed') return '<span class="survey-status st-failed">failed</span>';
+  return '<span class="survey-status">?</span>';
+}
+
+function renderSurveys(){
+  const el = document.getElementById('survey-list');
+  let done = 0;
+  el.innerHTML = ZONE_IDS.map(id => {
+    const s = surveyData[id];
+    if(s && s.status==='complete') done++;
+    const msg = s && s.message ? `<div class="survey-msg">${s.message}</div>` : '';
+    const viewBtn = (s && s.model_url)
+      ? `<button class="btn-mini view3d" onclick="openSurveyViewer('${id}')">◈ view 3D</button>` : '';
+    return `<div class="survey-row">
+      <div style="min-width:0;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="device-zone-chip">${id}</div>
+          <div>${surveyStatusChip(s)}${msg}</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:5px;">
+        ${viewBtn}
+        <button class="btn-mini" onclick="openSurveyModal('${id}')">manage</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('survey-count').textContent = `${done}/6`;
+  renderOverview();
+}
+
+function openSurveyModal(zid){
+  surveyModalZone = zid;
+  document.getElementById('survey-modal-title').textContent =
+    `3D Survey Studio — Zone ${zid}` + (zones[zid] ? ' ('+zones[zid].name.split(' - ')[1]+')' : '');
+  refreshSurveyModalStatus();
+  document.getElementById('modal-survey').classList.add('open');
+  odmCheck();
+}
+window.openSurveyModal = openSurveyModal;
+
+function setStepper(stage){ // 1=capture, 2=reconstruct, 3=view
+  for(let i=1;i<=3;i++){
+    const el = document.getElementById('step-'+i);
+    el.className = 'step' + (i<stage ? ' done' : (i===stage ? ' active' : ''));
+  }
+  document.getElementById('bar-1').className = 'step-bar' + (stage>1?' done':'');
+  document.getElementById('bar-2').className = 'step-bar' + (stage>2?' done':'');
+}
+
+function refreshSurveyModalStatus(){
+  const s = surveyData[surveyModalZone];
+  const el = document.getElementById('survey-modal-status');
+  const st = s ? s.status : 'none';
+  if(st==='none'){
+    setStepper(1);
+    el.innerHTML = 'No survey yet for this zone — start by adding slope photos below.';
+  } else {
+    setStepper(st==='complete' ? 3 : 2);
+    el.innerHTML = `Status: <b>${st.replace('_',' ')}</b> · ${s.images} image(s)` +
+      (s.message ? `<br><span style="color:var(--text-3)">${s.message}</span>` : '') +
+      (s.model_url ? `<br><span style="color:var(--low)">✓ 3D model ready</span>` : '');
+  }
+  const vb = document.getElementById('btn-view3d');
+  vb.disabled = !(s && s.model_url);
+}
+
+// NodeODM engine online check
+async function odmCheck(){
+  const dot = document.getElementById('odm-dot');
+  const txt = document.getElementById('odm-status-text');
+  const url = document.getElementById('odm-url-input').value.trim() || 'http://localhost:3001';
+  dot.className = 'dot'; txt.textContent = 'checking…';
+  try{
+    const j = await fetch('/api/odm/status?url=' + encodeURIComponent(url)).then(r=>r.json());
+    if(j.online){ dot.className = 'dot live'; txt.textContent = `engine online (v${j.version})`; }
+    else { dot.className = 'dot down'; txt.textContent = 'engine offline — start Docker command below'; }
+  }catch(e){ dot.className = 'dot down'; txt.textContent = 'engine offline'; }
+}
+window.odmCheck = odmCheck;
+
+// drag & drop: auto-route photos vs model files
+async function surveyDrop(ev){
+  ev.preventDefault();
+  document.getElementById('survey-dropzone').classList.remove('drag');
+  if(!surveyModalZone) return;
+  const files = [...ev.dataTransfer.files];
+  if(!files.length) return;
+  const IMG = ['jpg','jpeg','png','tif','tiff'];
+  const MODEL = ['ply','glb','gltf','obj','mtl'];
+  const ext = f => (f.name.split('.').pop()||'').toLowerCase();
+  const hasModel = files.some(f => MODEL.includes(ext(f)));
+  const bucket = hasModel
+    ? files.filter(f => MODEL.includes(ext(f)) || IMG.includes(ext(f)))   // obj textures ride along
+    : files.filter(f => IMG.includes(ext(f)));
+  if(!bucket.length){ showToast('Unsupported files — drop photos or .ply/.glb/.obj'); return; }
+  const fd = new FormData();
+  bucket.forEach(f => fd.append('files', f));
+  const kind = hasModel ? 'model' : 'images';
+  showToast(`Uploading ${bucket.length} ${kind==='model'?'model file(s)':'photo(s)'}…`);
+  const res = await fetch(`/api/survey/${surveyModalZone}/${kind}`, { method:'POST', body: fd });
+  const j = await res.json();
+  showToast(j.error ? ('Upload failed: '+j.error)
+                    : (kind==='model' ? '✓ 3D model added — View 3D unlocked' : `✓ ${j.saved} photo(s) added (total ${j.total})`));
+  await fetchSurveys(); refreshSurveyModalStatus();
+}
+window.surveyDrop = surveyDrop;
+
+function pickImages(){ document.getElementById('pick-images').click(); }
+window.pickImages = pickImages;
+document.getElementById('pick-images').addEventListener('change', async e=>{
+  if(!e.target.files.length || !surveyModalZone) return;
+  const fd = new FormData();
+  [...e.target.files].forEach(f => fd.append('files', f));
+  showToast(`Uploading ${e.target.files.length} image(s)…`);
+  const res = await fetch(`/api/survey/${surveyModalZone}/images`, { method:'POST', body: fd });
+  const j = await res.json();
+  showToast(j.error ? ('Upload failed: '+j.error) : `✓ ${j.saved} image(s) uploaded (total ${j.total})`);
+  e.target.value = '';
+  await fetchSurveys(); refreshSurveyModalStatus();
+});
+
+function pickModel(){ document.getElementById('pick-model').click(); }
+window.pickModel = pickModel;
+document.getElementById('pick-model').addEventListener('change', async e=>{
+  if(!e.target.files.length || !surveyModalZone) return;
+  const fd = new FormData();
+  [...e.target.files].forEach(f => fd.append('files', f));
+  showToast('Uploading 3D model…');
+  const res = await fetch(`/api/survey/${surveyModalZone}/model`, { method:'POST', body: fd });
+  const j = await res.json();
+  showToast(j.error ? ('Model upload failed: '+j.error) : '✓ 3D model added — hit view 3D');
+  e.target.value = '';
+  await fetchSurveys(); refreshSurveyModalStatus();
+});
+
+async function processSurvey(){
+  if(!surveyModalZone) return;
+  const odm_url = document.getElementById('odm-url-input').value.trim() || 'http://localhost:3001';
+  showToast('Contacting NodeODM…');
+  const res = await fetch(`/api/survey/${surveyModalZone}/process`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ odm_url })
+  });
+  const j = await res.json();
+  if(j.error) showToast('⚠ ' + j.error, 8000);
+  else showToast('Reconstruction started — live progress shows in the Survey panel', 6000);
+  await fetchSurveys(); refreshSurveyModalStatus();
+}
+window.processSurvey = processSurvey;
+
+// ---- fullscreen viewer ----
+let vRenderer=null, vScene=null, vCamera=null, vControls=null, vModel=null, vAnimId=null, vWire=false, vGrid=null;
+function ensureViewer(){
+  if(vRenderer) return;
+  const cv = document.getElementById('viewer-canvas');
+  vRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias:true });
+  vRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  vScene = new THREE.Scene();
+  vScene.background = new THREE.Color(0x070b12);
+  vScene.fog = new THREE.FogExp2(0x070b12, 0.012);
+  vCamera = new THREE.PerspectiveCamera(50, 1, 0.05, 500);
+  vControls = new THREE.OrbitControls(vCamera, cv);
+  vControls.enableDamping = true;
+  vControls.dampingFactor = 0.08;
+  vScene.add(new THREE.HemisphereLight(0xbdc9d6, 0x10141c, 0.6));
+  const dl = new THREE.DirectionalLight(0xeaf2ff, 0.8);
+  dl.position.set(12, 18, 8);
+  vScene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x93b7d8, 0.25);
+  dl2.position.set(-10, 8, -10);
+  vScene.add(dl2);
+  const g = new THREE.PolarGridHelper(30, 8, 5, 48, 0x1c2733, 0x141b24);
+  g.position.y = -0.01;
+  vScene.add(g);
+  vGrid = g;
+
+  // measurement picking — a click (not a drag) drops a measure point
+  let mDown = null;
+  cv.addEventListener('pointerdown', e => { mDown = {x:e.clientX, y:e.clientY}; });
+  cv.addEventListener('pointerup', e => {
+    if(!vMeasureOn || !vModel || !mDown) return;
+    const moved = Math.hypot(e.clientX - mDown.x, e.clientY - mDown.y);
+    mDown = null;
+    if(moved > 5) return;
+    const r = cv.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+    const rc = new THREE.Raycaster();
+    rc.setFromCamera(ndc, vCamera);
+    const hits = rc.intersectObject(vModel, true);
+    if(hits.length) addMeasurePoint(hits[0].point);
+  });
+}
+function viewerResize(){
+  if(!vRenderer) return;
+  const wrapEl = document.getElementById('viewer-canvas-wrap');
+  const w = wrapEl.clientWidth, h = wrapEl.clientHeight;
+  vRenderer.setSize(w, h);
+  vCamera.aspect = w/h; vCamera.updateProjectionMatrix();
+}
+window.addEventListener('resize', viewerResize);
+
+function viewerFrame(){
+  vAnimId = requestAnimationFrame(viewerFrame);
+  vControls.update();
+  vRenderer.render(vScene, vCamera);
+}
+function fitCameraToModel(obj){
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  obj.position.sub(center);            // center at origin
+  obj.position.y += size.y/2;          // sit on the grid
+  const maxDim = Math.max(size.x, size.y, size.z);
+  vCamera.position.set(maxDim*0.15, maxDim*0.75, maxDim*1.25);
+  vCamera.near = maxDim/500; vCamera.far = maxDim*30;
+  vCamera.updateProjectionMatrix();
+  vControls.target.set(0, size.y*0.35, 0);
+  vControls.update();
+  // fog tuned for the sample-sized scene washes out big georeferenced models
+  if(vScene.fog) vScene.fog.density = Math.min(0.012, 1.2/(maxDim*8));
+  if(vGrid) vGrid.visible = maxDim < 60;
+}
+
+function autoOrientTerrain(obj){
+  // photogrammetry exports (ODM) are often z-up; three.js is y-up.
+  // Terrain is a slab: its thinnest dimension should be vertical — rotate if it isn't.
+  obj.updateMatrixWorld(true);
+  const size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+  if(size.z <= size.x && size.z <= size.y && size.y > size.z*3){
+    obj.rotation.x = -Math.PI/2;        // z-up -> y-up
+  } else if(size.x <= size.y && size.x <= size.z && size.y > size.x*3){
+    obj.rotation.z = Math.PI/2;         // x-up -> y-up
+  }
+  obj.updateMatrixWorld(true);
+}
+function clearViewerModel(){
+  if(vMeasureOn) viewerToggleMeasure();
+  clearMeasure();
+  vMode = 'texture';
+  ['texture','slope','elev'].forEach(m => document.getElementById('vm-'+m)?.classList.toggle('active', m==='texture'));
+  document.getElementById('viewer-legend')?.classList.remove('on');
+  if(vModel){ vScene.remove(vModel); vModel.traverse?.(c=>{ c.geometry?.dispose?.(); c.userData.heatMat?.dispose?.(); }); vModel=null; }
+}
+function viewerResetCam(){ if(vModel) fitCameraToModel(vModel); }
+window.viewerResetCam = viewerResetCam;
+function viewerToggleWire(){
+  vWire = !vWire;
+  document.getElementById('btn-wireframe').classList.toggle('active', vWire);
+  vModel?.traverse?.(c => { if(c.material) c.material.wireframe = vWire; });
+}
+window.viewerToggleWire = viewerToggleWire;
+
+// =====================================================================
+// 3D IMAGING — analysis render modes, measurement, snapshots
+// =====================================================================
+let vMode = 'texture';
+let vMeasureOn = false, vMeasurePts = [], vMeasureGroup = null;
+
+// slope: green→yellow→red · elevation: blue→cyan→green→yellow→red
+function heatColor(t, mode, c){
+  const h = (mode === 'slope' ? 0.33 : 0.66) * (1 - Math.max(0, Math.min(1, t)));
+  return c.setHSL(h, 0.85, 0.5);
+}
+
+function buildHeatColors(mesh, mode){
+  const geo = mesh.geometry;
+  const pos = geo.attributes.position;
+  if(!pos) return;
+  if(!geo.attributes.normal) geo.computeVertexNormals();
+  // remember the model's own vertex colors (e.g. colored PLY) so texture mode can restore them
+  if(geo.userData.origColor === undefined) geo.userData.origColor = geo.getAttribute('color') || null;
+  const nor = geo.attributes.normal;
+  // work in WORLD space so auto-oriented (rotated) models heat-map correctly
+  mesh.updateWorldMatrix(true, false);
+  const nm = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
+  const wb = new THREE.Box3().setFromObject(vModel || mesh);
+  const minY = wb.min.y;
+  const span = Math.max(1e-6, wb.max.y - minY);
+  const arr = new Float32Array(pos.count * 3);
+  const c = new THREE.Color(), v = new THREE.Vector3();
+  for(let i = 0; i < pos.count; i++){
+    let t;
+    if(mode === 'slope'){
+      v.set(nor.getX(i), nor.getY(i), nor.getZ(i)).applyMatrix3(nm).normalize();
+      const angle = Math.acos(Math.min(1, Math.abs(v.y))) * 180 / Math.PI; // 0° flat … 90° vertical
+      t = angle / 75; // 75°+ = fully red
+    } else {
+      v.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mesh.matrixWorld);
+      t = (v.y - minY) / span;
+    }
+    heatColor(t, mode, c);
+    arr[i*3] = c.r; arr[i*3+1] = c.g; arr[i*3+2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+}
+
+function viewerSetMode(mode){
+  vMode = mode;
+  ['texture','slope','elev'].forEach(m => document.getElementById('vm-'+m)?.classList.toggle('active', m === mode));
+  const legend = document.getElementById('viewer-legend');
+  if(legend){
+    if(mode === 'slope') legend.innerHTML = '<b>Slope angle</b><div class="vl-bar slope"></div><span>0° flat → 75°+ vertical</span>';
+    else if(mode === 'elev') legend.innerHTML = '<b>Elevation</b><div class="vl-bar elev"></div><span>toe → crest</span>';
+    legend.classList.toggle('on', mode !== 'texture');
+  }
+  if(!vModel) return;
+  vModel.traverse(c => {
+    if(!c.isMesh) return;
+    if(!c.userData.origMat) c.userData.origMat = c.material;
+    if(mode === 'texture'){
+      c.material = c.userData.origMat;
+      const oc = c.geometry.userData.origColor;
+      if(oc !== undefined){
+        if(oc) c.geometry.setAttribute('color', oc);
+        else c.geometry.deleteAttribute('color');
+      }
+    } else {
+      buildHeatColors(c, mode);
+      if(!c.userData.heatMat) c.userData.heatMat = new THREE.MeshStandardMaterial({
+        vertexColors: true, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide
+      });
+      c.material = c.userData.heatMat;
+    }
+    if(c.material){ c.material.wireframe = vWire; c.material.needsUpdate = true; }
+  });
+}
+window.viewerSetMode = viewerSetMode;
+
+function setViewerHud(msg){
+  const hud = document.querySelector('.viewer-hud');
+  if(hud) hud.innerHTML = msg || (vMeasureOn
+    ? 'measure: click two points on the model'
+    : 'drag rotate · right-drag pan · scroll zoom');
+}
+
+function viewerToggleMeasure(){
+  vMeasureOn = !vMeasureOn;
+  document.getElementById('btn-measure')?.classList.toggle('active', vMeasureOn);
+  const cv = document.getElementById('viewer-canvas');
+  if(cv) cv.style.cursor = vMeasureOn ? 'crosshair' : 'grab';
+  if(!vMeasureOn) clearMeasure();
+  setViewerHud();
+}
+window.viewerToggleMeasure = viewerToggleMeasure;
+
+function clearMeasure(){
+  vMeasurePts = [];
+  if(vMeasureGroup && vScene){ vScene.remove(vMeasureGroup); vMeasureGroup = null; }
+}
+
+function addMeasurePoint(p){
+  if(vMeasurePts.length >= 2) clearMeasure();
+  vMeasurePts.push(p.clone());
+  if(!vMeasureGroup){ vMeasureGroup = new THREE.Group(); vScene.add(vMeasureGroup); }
+  const size = new THREE.Box3().setFromObject(vModel).getSize(new THREE.Vector3()).length();
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(Math.max(size * 0.006, 0.02), 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x22d3ee, depthTest: false })
+  );
+  marker.renderOrder = 10;
+  marker.position.copy(p);
+  vMeasureGroup.add(marker);
+  if(vMeasurePts.length === 2){
+    const [a, b] = vMeasurePts;
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([a, b]),
+      new THREE.LineBasicMaterial({ color: 0x22d3ee, depthTest: false })
+    );
+    line.renderOrder = 10;
+    vMeasureGroup.add(line);
+    setViewerHud(`📏 distance: <b>${a.distanceTo(b).toFixed(2)}</b> model units (metres if georeferenced) · click again to remeasure`);
+  } else {
+    setViewerHud('measure: click the second point');
+  }
+}
+
+function canvasToPngDownload(srcCanvas, filename){
+  const out = document.createElement('canvas');
+  out.width = srcCanvas.width; out.height = srcCanvas.height;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#06090f';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(srcCanvas, 0, 0);
+  const a = document.createElement('a');
+  a.download = filename;
+  a.href = out.toDataURL('image/png');
+  a.click();
+}
+
+function viewerSnapshot(){
+  if(!vRenderer) return;
+  vRenderer.render(vScene, vCamera); // fresh frame — buffer is not preserved between frames
+  canvasToPngDownload(vRenderer.domElement, `innovatrix-survey-${vMode}-${Date.now()}.png`);
+  showToast('📷 3D snapshot saved as PNG');
+}
+window.viewerSnapshot = viewerSnapshot;
+
+function loadViewerModel(url){
+  clearViewerModel();
+  const loadingEl = document.getElementById('viewer-loading');
+  loadingEl.style.display = 'flex';
+  const ext = url.split('?')[0].split('.').pop().toLowerCase();
+  const done = obj => {
+    autoOrientTerrain(obj);
+    vModel = obj;
+    vScene.add(obj);
+    fitCameraToModel(obj);
+    loadingEl.style.display = 'none';
+  };
+  const fail = err => {
+    document.getElementById('viewer-loading-text').textContent = 'could not load model: ' + (err?.message || err);
+  };
+  const prog = ev => {
+    if(ev && ev.total) document.getElementById('viewer-loading-text').textContent =
+      `loading reconstruction… ${Math.round(ev.loaded/ev.total*100)}%`;
+  };
+  if(ext === 'ply'){
+    new THREE.PLYLoader().load(url, geo => {
+      geo.computeVertexNormals();
+      const hasColor = !!geo.getAttribute('color');
+      const mat = new THREE.MeshStandardMaterial({
+        vertexColors: hasColor, color: hasColor ? 0xffffff : 0x8b7f72,
+        roughness: 0.95, metalness: 0.02, side: THREE.DoubleSide
+      });
+      done(new THREE.Mesh(geo, mat));
+    }, prog, fail);
+  } else if(ext === 'obj'){
+    const base = url.substring(0, url.lastIndexOf('/')+1);
+    const objName = url.substring(url.lastIndexOf('/')+1);
+    const mtlName = objName.replace(/\.obj$/i, '.mtl');
+    const mtlLoader = new THREE.MTLLoader();
+    mtlLoader.setPath(base);
+    mtlLoader.load(mtlName, materials => {
+      materials.preload();
+      const ol = new THREE.OBJLoader();
+      ol.setMaterials(materials); ol.setPath(base);
+      ol.load(objName, done, prog, fail);
+    }, undefined, () => {
+      // no .mtl — load raw geometry
+      const ol = new THREE.OBJLoader(); ol.setPath(base);
+      ol.load(objName, obj => {
+        obj.traverse(c => { if(c.isMesh) c.material = new THREE.MeshStandardMaterial({ color:0x8b7f72, roughness:0.95, side:THREE.DoubleSide }); });
+        done(obj);
+      }, prog, fail);
+    });
+  } else if(ext === 'glb' || ext === 'gltf'){
+    const gl = new THREE.GLTFLoader();
+    if(THREE.DRACOLoader){
+      // ODM exports Draco-compressed GLBs — decoder bundled locally, works offline
+      const dr = new THREE.DRACOLoader();
+      dr.setDecoderPath('loaders/draco/gltf/');
+      gl.setDRACOLoader(dr);
+    }
+    gl.load(url, g => done(g.scene), prog, fail);
+  } else {
+    fail(new Error('unsupported format .' + ext));
+  }
+}
+
+function openSurveyViewer(zid){
+  ensureViewer();
+  let url, title, sub;
+  if(zid && surveyData[zid] && surveyData[zid].model_url){
+    url = surveyData[zid].model_url;
+    title = `Survey Reconstruction — Zone ${zid}`;
+    sub = url.split('/').pop() + (zones[zid] ? ' · ' + zones[zid].name : '');
+  } else {
+    if(!sampleModelUrl){ showToast('Sample model missing — check backend/surveys/sample/'); return; }
+    url = sampleModelUrl;
+    title = 'Survey Reconstruction — SAMPLE';
+    sub = 'synthetic sample (bundled) — a real drone survey replaces this per zone';
+  }
+  document.getElementById('viewer-title').childNodes[0].textContent = title;
+  document.getElementById('viewer-sub').textContent = sub;
+  document.getElementById('viewer-overlay').classList.add('open');
+  viewerResize();
+  if(!vAnimId) viewerFrame();
+  loadViewerModel(url);
+}
+window.openSurveyViewer = openSurveyViewer;
+function closeSurveyViewer(){
+  document.getElementById('viewer-overlay').classList.remove('open');
+  if(vAnimId){ cancelAnimationFrame(vAnimId); vAnimId = null; }
+  clearViewerModel();
+}
+window.closeSurveyViewer = closeSurveyViewer;
+
+// =====================================================================
+// ALERT SIREN (optional, off by default)
+// =====================================================================
+let soundOn = false, audioCtx = null;
+function toggleSound(){
+  soundOn = !soundOn;
+  const b = document.getElementById('btn-sound');
+  b.textContent = (soundOn ? '🔊' : '🔇') + ' siren';
+  b.classList.toggle('active', soundOn);
+  if(soundOn && !audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+}
+window.toggleSound = toggleSound;
+function playSiren(){
+  if(!soundOn || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  for(let i=0;i<3;i++){
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type='square'; o.frequency.setValueAtTime(880, now+i*0.35);
+    o.frequency.linearRampToValueAtTime(660, now+i*0.35+0.3);
+    g.gain.setValueAtTime(0.06, now+i*0.35);
+    g.gain.linearRampToValueAtTime(0.0001, now+i*0.35+0.32);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(now+i*0.35); o.stop(now+i*0.35+0.33);
+  }
+}
+
+// =====================================================================
+// DEMO SCENARIO — scripted rockfall fed through the REAL pipeline.
+// Posts to /api/sensor-data exactly like an ESP32 would, so the risk
+// engine / alerts / drone logic all run genuinely. Clearly labelled
+// as SIMULATION on screen the whole time.
+// =====================================================================
+let demoRunning = false, demoAbort = false;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function postReading(zone_id, vibration, tilt, rainfall){
+  try{
+    await fetch('/api/sensor-data', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        zone_id, vibration, tilt, rainfall,
+        temperature: 29 + Math.random()*4, humidity: 55 + Math.random()*12
+      })
+    });
+  }catch(e){ /* backend gone — demo loop will just stop visually updating */ }
+}
+async function runDemoScenario(){
+  const zid = focusZone;
+  const others = ZONE_IDS.filter(id => id !== zid).slice(0,2);
+  const TICKS = 16;
+  for(let i=0; i<TICKS && !demoAbort; i++){
+    const p = i/(TICKS-1); // 0..1 buildup
+    await postReading(zid,
+      0.08 + p*2.6 + Math.random()*0.1,   // vibration ramps up
+      2 + p*25 + Math.random()*0.8,       // tilt creeps
+      4 + p*45 + Math.random()*1.5        // rainfall pours
+    );
+    others.forEach(o => postReading(o, Math.random()*0.15, 1+Math.random()*2, Math.random()*5));
+    await sleep(750);
+  }
+  // cooldown back to safe
+  for(let i=0; i<10 && !demoAbort; i++){
+    const p = 1 - i/9;
+    await postReading(zid, 0.05 + p*1.2, 2 + p*12, 3 + p*18);
+    await sleep(700);
+  }
+  stopDemoUI();
+}
+function stopDemoUI(){
+  demoRunning = false; demoAbort = false;
+  document.getElementById('btn-demo').classList.remove('demo-live');
+  document.getElementById('btn-demo').textContent = '▶ demo scenario';
+  document.getElementById('sim-banner').classList.remove('on');
+}
+function toggleDemo(){
+  if(demoRunning){ demoAbort = true; stopDemoUI(); return; }
+  demoRunning = true;
+  document.getElementById('btn-demo').classList.add('demo-live');
+  document.getElementById('btn-demo').textContent = '■ stop demo';
+  document.getElementById('sim-banner').classList.add('on');
+  showToast(`Demo scenario running on <b>Zone ${focusZone}</b> — watch the gauge, charts &amp; drone`);
+  runDemoScenario();
+}
+window.toggleDemo = toggleDemo;
+
+// =====================================================================
+// TOAST + HELP + KEYBOARD
+// =====================================================================
+let toastTimer = null;
+function showToast(html, ms=5000){
+  const el = document.getElementById('toast');
+  el.innerHTML = html;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> el.classList.remove('show'), ms);
+}
+function openModalHelp(){ document.getElementById('modal-help').classList.add('open'); }
+window.openModalHelp = openModalHelp;
+
+window.addEventListener('keydown', e=>{
+  if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key;
+  if(k >= '1' && k <= '6'){ setFocus(ZONE_IDS[+k-1], true); }
+  else if(k === 'r' || k === 'R'){ resetView(); }
+  else if(k === ' '){ e.preventDefault(); toggleAutoRotate(); }
+  else if(k === 'd' || k === 'D'){ toggleDemo(); }
+  else if(k === 's' || k === 'S'){ toggleSound(); }
+  else if(k === '?'){ openModalHelp(); }
+  else if(k === 'Escape'){ ['modal-sensor','modal-camera','modal-help','modal-survey'].forEach(closeModal); closeSurveyViewer(); }
+});
+
+setTimeout(()=> showToast('Tip: <b>click a zone</b> on the 3D map · press <b>D</b> for a demo scenario · <b>?</b> for shortcuts', 7000), 1500);
+
+// =====================================================================
+// DATA FLOW
+// =====================================================================
+function pushHistory(z){
+  const hy = histories[z.id];
+  hy.t.push(new Date().toLocaleTimeString('en-GB'));
+  hy.risk.push(z.risk_score);
+  hy.vib.push(z.vibration_rms);
+  hy.tilt.push(z.tilt);
+  hy.rain.push(z.rainfall);
+  if(hy.t.length > HISTORY_CAP){
+    hy.t.shift(); hy.risk.shift(); hy.vib.shift(); hy.tilt.shift(); hy.rain.shift();
+  }
+}
+
+function applyZoneUpdate(z, withHistory=true){
+  zones[z.id] = z;
+  if(withHistory && z.last_updated) pushHistory(z);
+  applyZoneColor(z.id, z.risk_level);
+  drawLabel(z.id, z);
+  renderZoneStrip();
+  renderKPIs();
+  renderDevices();
+  renderWorkforce();
+  renderOverview();
+  if(z.id === focusZone){ renderSensors(); renderCamera(); renderCharts(); renderGauge(); }
+  if(document.getElementById('modal-sensor').classList.contains('open')) updateSensorCode();
+}
+
+// =====================================================================
+// WEATHER — live conditions + forecast-aware risk
+// =====================================================================
+let wxConfig = null, wxState = null;
+
+async function fetchWeather(){
+  try{
+    const j = await fetch('/api/weather').then(r=>r.json());
+    wxConfig = j.config; wxState = j.weather;
+    renderWeather();
+  }catch(e){}
+}
+
+function renderWeather(){
+  const val = document.getElementById('kpi-weather-val');
+  const badge = document.getElementById('weather-badge');
+  if(!wxConfig || !wxConfig.enabled || wxConfig.lat == null){
+    val.textContent = 'set location'; badge.textContent = ''; return;
+  }
+  if(!wxState || !wxState.ok){
+    val.textContent = 'fetching…'; badge.textContent = ''; return;
+  }
+  val.innerHTML = `${Math.round(wxState.temperature)}°C · ${wxState.rain_now}<small>mm</small> · 6h ${wxState.rain_next_6h}<small>mm</small>`;
+  badge.textContent = wxState.rain_incoming ? '🌧 RAIN INCOMING' : '';
+  badge.style.color = wxState.rain_incoming ? 'var(--amber)' : '';
+}
+
+function openWeatherModal(){
+  document.getElementById('modal-weather').classList.add('open');
+  if(wxConfig){
+    if(wxConfig.lat != null) document.getElementById('wx-lat').value = wxConfig.lat;
+    if(wxConfig.lon != null) document.getElementById('wx-lon').value = wxConfig.lon;
+    document.getElementById('wx-place').value = wxConfig.place || '';
+    document.getElementById('wx-toggle').textContent = wxConfig.enabled ? 'Disable' : 'Enable';
+  }
+  renderWeatherDetail();
+}
+
+function renderWeatherDetail(){
+  const el = document.getElementById('wx-detail');
+  if(!el) return;
+  if(wxState && wxState.ok){
+    el.innerHTML = `<b>Now:</b> ${wxState.temperature}°C · ${wxState.humidity}% RH · rain ${wxState.rain_now} mm/h<br>
+      <b>Forecast:</b> next 6 h ${wxState.rain_next_6h} mm · next 24 h ${wxState.rain_next_24h} mm
+      ${wxState.rain_incoming ? '<br><b style="color:var(--amber);">🌧 Heavy rain incoming — risk boost +' + wxState.forecast_boost + ' active on all zones</b>' : ''}
+      <br><span style="opacity:.6;">fetched ${wxState.fetched_at}</span>`;
+  } else if(wxState && wxState.error){
+    el.innerHTML = `<span style="opacity:.7;">${escN(wxState.error)}</span>`;
+  } else el.textContent = '';
+}
+
+function useMyLocation(){
+  if(!navigator.geolocation){ showToast('No geolocation in this browser'); return; }
+  showToast('Getting location…');
+  navigator.geolocation.getCurrentPosition(p => {
+    document.getElementById('wx-lat').value = p.coords.latitude.toFixed(4);
+    document.getElementById('wx-lon').value = p.coords.longitude.toFixed(4);
+    showToast('✓ Location filled — hit Save');
+  }, () => showToast('Location permission denied — enter lat/lon manually'));
+}
+
+async function saveWeather(){
+  const lat = parseFloat(document.getElementById('wx-lat').value);
+  const lon = parseFloat(document.getElementById('wx-lon').value);
+  if(isNaN(lat) || isNaN(lon)){ showToast('Enter a valid latitude and longitude'); return; }
+  showToast('Saving + fetching live weather…');
+  const j = await fetch('/api/weather/config', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({lat, lon, place: document.getElementById('wx-place').value.trim(), enabled: true}),
+  }).then(r=>r.json());
+  wxConfig = j.config; wxState = j.weather;
+  renderWeather(); renderWeatherDetail();
+  document.getElementById('wx-toggle').textContent = wxConfig.enabled ? 'Disable' : 'Enable';
+  showToast(wxState.ok ? '✓ Live weather active' : ('Weather fetch failed: ' + (wxState.error||'')));
+}
+
+async function toggleWeather(){
+  if(!wxConfig) return;
+  const j = await fetch('/api/weather/config', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({enabled: !wxConfig.enabled}),
+  }).then(r=>r.json());
+  wxConfig = j.config; wxState = j.weather;
+  document.getElementById('wx-toggle').textContent = wxConfig.enabled ? 'Disable' : 'Enable';
+  renderWeather(); renderWeatherDetail();
+  showToast(wxConfig.enabled ? '☁ Weather ON' : 'Weather OFF');
+}
+
+// --- phone camera capture straight into the survey batch ---
+function pickCamera(){
+  if(!surveyModalZone){ showToast('Open a zone survey first'); return; }
+  document.getElementById('pick-camera').click();
+}
+document.getElementById('pick-camera').addEventListener('change', async e => {
+  if(!e.target.files.length || !surveyModalZone) return;
+  const fd = new FormData();
+  fd.append('files', e.target.files[0]);
+  const res = await fetch(`/api/survey/${surveyModalZone}/images`, { method:'POST', body: fd });
+  const j = await res.json();
+  e.target.value = '';
+  if(j.error){ showToast('Upload failed: ' + j.error); return; }
+  const n = j.total;
+  document.getElementById('capture-count').innerHTML =
+    `<b>📷 ${n} photo(s) captured.</b> ${n < 30 ? 'Aim for 30+ with 70–80% overlap — small steps around the slope.' : '✓ Enough for a solid reconstruction — more only helps.'}`;
+  showToast(`📷 Photo ${n} uploaded`);
+  await fetchSurveys(); refreshSurveyModalStatus();
+});
+
+// =====================================================================
+// ALERT CHANNELS — Telegram / Email / SMS / Webhook + browser push
+// =====================================================================
+let notifyCfg = null, notifyLog = [];
+let browserNotifsOn = ('Notification' in window) && Notification.permission === 'granted';
+const escN = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CH_ICON = {telegram:'✈️', email:'✉️', sms:'📱', webhook:'🔗'};
+
+async function fetchNotify(){
+  try{
+    const [c, l] = await Promise.all([
+      fetch('/api/notify/config').then(r=>r.json()),
+      fetch('/api/notify/log').then(r=>r.json()),
+    ]);
+    notifyCfg = c; notifyLog = l;
+    renderNotify();
+  }catch(e){ /* backend not up yet */ }
+}
+
+function renderNotify(){
+  const subs = (notifyCfg && notifyCfg.subscribers) || [];
+  document.getElementById('sub-count').textContent = subs.length;
+  const summary = document.getElementById('notify-summary');
+  summary.innerHTML = subs.length
+    ? subs.map(s=>`<span style="display:inline-block; margin:1px 8px 1px 0;">${CH_ICON[s.type]||''} ${escN(s.name||s.target)} <span style="opacity:.55;">${s.min_level}+</span></span>`).join('')
+    : 'No recipients yet — add Telegram / email / SMS so the right people get alerted even when nobody is watching this screen.';
+  document.getElementById('notify-log').innerHTML = notifyLog.slice(0,5).map(e=>
+    `<div style="display:flex; justify-content:space-between; gap:8px; padding:3px 14px; font-size:11px; font-family:var(--mono);">
+       <span>${e.ok?'✅':'❌'} ${e.channel} → ${escN(e.to)}${e.test?' <i style="opacity:.6;">(test)</i>':''}</span>
+       <span style="color:var(--text-2); flex-shrink:0;">${e.ts||''}</span>
+     </div>`).join('');
+  renderSubList();
+  updateNotifBtn();
+}
+
+function renderSubList(){
+  const el = document.getElementById('sub-list');
+  if(!el) return;
+  const subs = (notifyCfg && notifyCfg.subscribers) || [];
+  el.innerHTML = subs.length ? subs.map(s=>
+    `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--line); font-size:12px;">
+       <span>${CH_ICON[s.type]||''} <b>${escN(s.name||s.target)}</b> <span style="opacity:.6; font-family:var(--mono); font-size:10.5px;">${escN(s.target)}</span> · ${s.min_level}+</span>
+       <button class="map-btn" onclick="removeSubscriber('${s.id}')">✕</button>
+     </div>`).join('')
+    : '<p class="modal-hint">No recipients yet.</p>';
+}
+
+function openNotifyModal(){
+  document.getElementById('modal-notify').classList.add('open');
+  if(notifyCfg){
+    const ch = notifyCfg.channels;
+    document.getElementById('cfg-em-host').value = ch.email.smtp_host || '';
+    document.getElementById('cfg-em-port').value = ch.email.smtp_port || 465;
+    document.getElementById('cfg-em-user').value = ch.email.username || '';
+    document.getElementById('cfg-sms-from').value = ch.sms.from_number || '';
+    document.getElementById('cfg-min-level').value = notifyCfg.min_level || 'High';
+    document.getElementById('cfg-cooldown').value = notifyCfg.cooldown_sec ?? 300;
+    document.getElementById('tg-status').textContent = ch.telegram.bot_token_set ? '· ✓ token saved' : '· not configured';
+    document.getElementById('em-status').textContent = ch.email.password_set ? '· ✓ configured' : '· not configured';
+    document.getElementById('sms-status').textContent = ch.sms.twilio_token_set ? '· ✓ configured' : '· not configured';
+  }
+  renderSubList();
+}
+
+async function saveNotifyConfig(){
+  const patch = {
+    min_level: document.getElementById('cfg-min-level').value,
+    cooldown_sec: parseFloat(document.getElementById('cfg-cooldown').value) || 300,
+    channels: {
+      telegram: { bot_token: document.getElementById('cfg-tg-token').value.trim() },
+      email: {
+        smtp_host: document.getElementById('cfg-em-host').value.trim() || 'smtp.gmail.com',
+        smtp_port: parseInt(document.getElementById('cfg-em-port').value) || 465,
+        username: document.getElementById('cfg-em-user').value.trim(),
+        password: document.getElementById('cfg-em-pass').value,
+      },
+      sms: {
+        twilio_sid: document.getElementById('cfg-sms-sid').value.trim(),
+        twilio_token: document.getElementById('cfg-sms-token').value,
+        from_number: document.getElementById('cfg-sms-from').value.trim(),
+      },
+    },
+  };
+  const res = await fetch('/api/notify/config', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(patch),
+  });
+  notifyCfg = await res.json();
+  ['cfg-tg-token','cfg-em-pass','cfg-sms-sid','cfg-sms-token'].forEach(id=>document.getElementById(id).value='');
+  showToast('✓ Alert settings saved');
+  renderNotify(); openNotifyModal();
+}
+
+async function addSubscriber(){
+  const body = {
+    type: document.getElementById('sub-type').value,
+    target: document.getElementById('sub-target').value.trim(),
+    name: document.getElementById('sub-name').value.trim(),
+    min_level: document.getElementById('sub-level').value,
+  };
+  if(!body.target){ showToast('Enter a chat ID / email / phone number first'); return; }
+  const res = await fetch('/api/notify/subscribers', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body),
+  });
+  const j = await res.json();
+  if(j.status !== 'ok'){ showToast('Could not add: ' + (j.error||'unknown error')); return; }
+  document.getElementById('sub-target').value=''; document.getElementById('sub-name').value='';
+  await fetchNotify();
+  showToast(`✓ ${CH_ICON[body.type]||''} recipient added`);
+}
+
+async function removeSubscriber(id){
+  await fetch(`/api/notify/subscribers/${id}`, {method:'DELETE'});
+  await fetchNotify();
+}
+
+async function sendTestAlert(){
+  const res = await fetch('/api/notify/test', {method:'POST'});
+  const j = await res.json();
+  showToast(j.dispatched ? `📨 Test alert dispatching to ${j.dispatched} recipient(s)…` : `No test sent — ${j.reason}`);
+}
+
+// --- native browser push on this device (works on phones via the PWA/tab) ---
+function updateNotifBtn(){
+  const b = document.getElementById('btn-notif');
+  if(b) b.textContent = (browserNotifsOn ? '🔔' : '🔕') + ' push';
+}
+async function toggleBrowserNotifs(){
+  if(!('Notification' in window)){ showToast('This browser has no notification support'); return; }
+  if(browserNotifsOn){ browserNotifsOn = false; updateNotifBtn(); showToast('Device push notifications OFF'); return; }
+  const perm = await Notification.requestPermission();
+  if(perm === 'granted'){
+    browserNotifsOn = true; updateNotifBtn();
+    new Notification('⛰ INNOVATRIX', {body:'Push notifications enabled on this device — you will be pinged on High/Critical alerts.', tag:'innovatrix-hello'});
+  } else showToast('Notification permission was denied by the browser');
+}
+function notifyBrowser(alert){
+  if(!browserNotifsOn || Notification.permission!=='granted') return;
+  if(alert.level!=='High' && alert.level!=='Critical') return;
+  const n = new Notification(`⛰ INNOVATRIX ${alert.level} — ${alert.zone_name}`, {
+    body:`Risk ${alert.score}% · ${alert.reason} · ${alert.time}`,
+    tag:'innovatrix-'+alert.zone_id,
+  });
+  n.onclick = () => { try{ window.focus(); setFocus(alert.zone_id, true); }catch(e){} n.close(); };
+}
+
+// =====================================================================
+// WEBSOCKET
+// =====================================================================
+let ws;
+function connect(){
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => {
+    document.getElementById('conn-dot').className = 'dot live';
+    document.getElementById('conn-text').textContent = 'LIVE';
+  };
+  ws.onclose = () => {
+    document.getElementById('conn-dot').className = 'dot down';
+    document.getElementById('conn-text').textContent = 'Reconnecting…';
+    setTimeout(connect, 2000);
+  };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    if(msg.type === 'snapshot'){
+      msg.zones.forEach(z => applyZoneUpdate(z, false));
+      alerts = msg.alerts || [];
+      renderAlerts(); renderKPIs();
+    } else if(msg.type === 'zone_update'){
+      applyZoneUpdate(msg.zone);
+      if(msg.alert){
+        alerts.unshift(msg.alert);
+        renderAlerts();
+        if(msg.alert.level==='High' || msg.alert.level==='Critical') playSiren();
+        notifyBrowser(msg.alert);
+      }
+    } else if(msg.type === 'weather_update'){
+      wxState = msg.weather; wxConfig = msg.config;
+      renderWeather();
+      if(document.getElementById('modal-weather').classList.contains('open')) renderWeatherDetail();
+    } else if(msg.type === 'notify_dispatch'){
+      msg.results.forEach(r => notifyLog.unshift(r));
+      notifyLog = notifyLog.slice(0, 100);
+      renderNotify();
+      const okd = msg.results.filter(r=>r.ok).length;
+      showToast(`📨 Alert messages: ${okd}/${msg.results.length} delivered`);
+    } else if(msg.type === 'survey_update'){
+      surveyData[msg.survey.zone_id] = msg.survey;
+      renderSurveys();
+      if(document.getElementById('modal-survey').classList.contains('open')) refreshSurveyModalStatus();
+    }
+  };
+}
+connect();
+renderZoneStrip(); renderKPIs(); renderSensors(); renderAlerts(); renderDevices(); renderCamera(); renderCharts(); renderGauge();
+renderWorkforce(); renderOverview();
+renderSurveys(); fetchSurveys(); fetchNotify(); fetchWeather();
+</script>
+</body>
+</html>

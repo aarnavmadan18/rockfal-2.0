@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>INNOVATRIX — Phone Sensor Node</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M3 20 L9 8 L13 14 L16 9 L21 20 Z' fill='%23fbbf24'/></svg>">
+<style>
+  :root{
+    --bg:#05070d; --surface:#0b101c; --surface-2:#101725; --surface-3:#16202f;
+    --line:#1c2739; --line-bright:#2c3d57;
+    --accent:#22d3ee; --accent-deep:#0891b2; --amber:#fbbf24;
+    --low:#34d399; --moderate:#fde047; --high:#fb923c; --critical:#f43f5e;
+    --text:#e8eef7; --text-2:#9fb2c8; --text-3:#5d7089;
+    --mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body{
+    background:
+      radial-gradient(600px 300px at 50% -10%, rgba(34,211,238,0.08), transparent 60%),
+      var(--bg);
+    color:var(--text); font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;
+    min-height:100vh; padding:18px 16px 30px; max-width:440px; margin:0 auto;
+  }
+  h1{ font-size:17px; font-weight:800; display:flex; align-items:center; gap:8px; }
+  h1 em{ font-style:normal; color:var(--amber); }
+  .sub{ font-size:10px; color:var(--text-3); letter-spacing:1.4px; text-transform:uppercase; font-weight:600; margin:2px 0 16px; }
+  .card{
+    background:linear-gradient(180deg,var(--surface),#080d16); border:1px solid var(--line);
+    border-radius:14px; padding:14px; margin-bottom:12px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  label{ font-size:9.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:1px; font-weight:700; display:block; margin-bottom:6px; }
+  .zones{ display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
+  .zbtn{
+    padding:10px 0; border-radius:9px; border:1px solid var(--line-bright); background:var(--surface-3);
+    color:var(--text-2); font-family:var(--mono); font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .zbtn.sel{ background:rgba(34,211,238,0.12); border-color:var(--accent); color:var(--accent); box-shadow:0 0 12px rgba(34,211,238,0.2); }
+  .go{
+    width:100%; padding:15px; border-radius:12px; border:none; cursor:pointer;
+    font-size:15px; font-weight:800; letter-spacing:0.5px;
+    background:linear-gradient(180deg,#34e3ff,var(--accent-deep)); color:#04222b;
+    box-shadow:0 4px 18px rgba(34,211,238,0.35);
+  }
+  .go.stop{ background:linear-gradient(180deg,#ff5c7a,#c81e42); color:#fff; box-shadow:0 4px 18px rgba(244,63,94,0.35); }
+  .readings{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .r{ background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .r b{ font-family:var(--mono); font-size:19px; font-weight:700; display:block; margin-top:2px; }
+  .r small{ color:var(--text-3); font-size:9.5px; }
+  .meta-row{
+    display:flex; justify-content:space-between; margin-top:10px;
+    font-family:var(--mono); font-size:10px; color:var(--text-3);
+  }
+  .risk-strip{
+    margin-top:10px; padding:10px 12px; border-radius:10px; text-align:center;
+    font-family:var(--mono); font-size:13px; font-weight:700;
+    background:var(--surface-2); border:1px solid var(--line);
+  }
+  input[type=range]{ width:100%; accent-color:var(--accent); }
+  .shake{
+    width:100%; padding:16px; margin-top:8px; border-radius:12px; cursor:pointer;
+    border:1px dashed var(--line-bright); background:var(--surface-2); color:var(--text-2);
+    font-size:13px; font-weight:700; user-select:none; -webkit-user-select:none;
+  }
+  .shake:active{ border-color:var(--critical); color:var(--critical); background:rgba(244,63,94,0.1); }
+  .recal{
+    padding:8px 12px; border-radius:9px; border:1px solid var(--line-bright); cursor:pointer;
+    background:var(--surface-3); color:var(--text-2); font-size:11px; font-weight:700; width:100%; margin-top:10px;
+  }
+  .recal:active{ color:var(--accent); border-color:var(--accent-deep); }
+  .status{ font-family:var(--mono); font-size:11px; color:var(--text-3); text-align:center; margin-top:10px; line-height:1.7; }
+  .status b{ color:var(--low); }
+  .status .cal{ color:var(--amber); }
+  .mode-tag{ font-size:9px; font-family:var(--mono); color:var(--accent); border:1px solid var(--accent-deep); border-radius:5px; padding:2px 7px; }
+  .hidden{ display:none; }
+  .low{ color:var(--low); } .moderate{ color:var(--moderate); } .high{ color:var(--high); } .critical{ color:var(--critical); }
+</style>
+</head>
+<body>
+<h1>⛰ INNOVA<em>TRIX</em> <span class="mode-tag" id="mode-tag">SENSOR NODE</span></h1>
+<div class="sub">Phone as calibrated sensor node — same API as ESP32</div>
+
+<div class="card">
+  <label>Zone this node monitors</label>
+  <div class="zones" id="zones"></div>
+</div>
+
+<div class="card">
+  <button class="go" id="go" onclick="toggleRun()">▶ START STREAMING</button>
+  <div class="status" id="status">Not streaming. Pick a zone and hit start.<br>
+  This posts real readings to <b>/api/sensor-data</b> — the exact endpoint an ESP32 node uses.</div>
+</div>
+
+<div class="card">
+  <div class="readings">
+    <div class="r"><small>VIBRATION RMS (windowed)</small><b id="r-vib">0.000 <span style="font-size:10px;">m/s²</span></b></div>
+    <div class="r"><small>PEAK (this window)</small><b id="r-peak">0.00 <span style="font-size:10px;">m/s²</span></b></div>
+    <div class="r"><small>TILT Δ (from baseline)</small><b id="r-tilt">0.0 <span style="font-size:10px;">°</span></b></div>
+    <div class="r"><small>SAMPLE RATE</small><b id="r-rate">0 <span style="font-size:10px;">Hz</span></b></div>
+  </div>
+  <div class="meta-row">
+    <span>noise floor: <span id="r-noise">--</span> m/s²</span>
+    <span>baseline tilt: <span id="r-base">--</span>°</span>
+  </div>
+  <div class="risk-strip" id="risk-strip">zone risk: --</div>
+  <button class="recal" id="recal-btn" onclick="startCalibration()">↺ RECALIBRATE (hold phone still / re-zero tilt)</button>
+</div>
+
+<div class="card" id="manual-card">
+  <label>Rainfall (manual — or set mine location for live weather)</label>
+  <input type="range" id="rain" min="0" max="60" value="0" oninput="document.getElementById('rain-val').textContent=this.value">
+  <div class="status" style="margin-top:2px;"><span id="rain-val">0</span> mm</div>
+  <div id="manual-extra" class="hidden">
+    <label style="margin-top:12px;">Tilt (manual)</label>
+    <input type="range" id="m-tilt" min="0" max="45" value="2">
+    <button class="shake" id="shake-btn">📳 HOLD TO SIMULATE VIBRATION</button>
+  </div>
+</div>
+
+<script>
+const ZONES = ['A','B','C','D','E','F'];
+// zone comes from the URL (?zone=F), else last-used, else A — so one link fully configures the node
+const urlZone = (new URLSearchParams(location.search).get('zone') || '').toUpperCase();
+let zone = ZONES.includes(urlZone) ? urlZone : (localStorage.getItem('nodeZone') || 'A');
+if(!ZONES.includes(zone)) zone = 'A';
+let running = false, timer = null;
+let manualMode = false, shaking = false, motionSeen = false;
+
+// ---- signal-processing state (real instrumentation approach) ----
+// gravity separated from motion with a low-pass filter; vibration = windowed RMS
+// of the high-passed signal; noise floor + tilt baseline captured by calibration.
+const G_ALPHA = 0.92;          // gravity low-pass coefficient (~1 Hz cutoff at 60 Hz)
+let grav = {x:0, y:0, z:9.81}, gravInit = false;
+let sumSq = 0, nSamples = 0, peak = 0;      // per-post window accumulators
+let tiltSmooth = 0;                          // low-passed absolute tilt (deg)
+let noiseFloor = 0, tiltBase = 0;            // from calibration
+let calibrating = false, calSumSq = 0, calN = 0, calTiltSum = 0;
+
+const $ = id => document.getElementById(id);
+
+$('zones').innerHTML = ZONES.map(z =>
+  `<button class="zbtn${z===zone?' sel':''}" id="z-${z}" onclick="pickZone('${z}')">${z}</button>`).join('');
+function pickZone(z){
+  zone = z;
+  localStorage.setItem('nodeZone', z);
+  ZONES.forEach(x => $('z-'+x).classList.toggle('sel', x===z));
+}
+
+function onMotion(e){
+  motionSeen = true;
+  let lx, ly, lz;
+  const g = e.accelerationIncludingGravity;
+  if(g && g.x !== null){
+    // track gravity with a low-pass filter, subtract it -> true linear acceleration.
+    // more robust than |a|-9.8, which breaks the moment the phone rotates.
+    if(!gravInit){ grav = {x:g.x, y:g.y, z:g.z}; gravInit = true; }
+    grav.x = G_ALPHA*grav.x + (1-G_ALPHA)*g.x;
+    grav.y = G_ALPHA*grav.y + (1-G_ALPHA)*g.y;
+    grav.z = G_ALPHA*grav.z + (1-G_ALPHA)*g.z;
+    // tilt from the gravity vector itself: angle between device z-axis and vertical.
+    // immune to the gimbal flips that plague deviceorientation beta/gamma.
+    const gn = Math.hypot(grav.x, grav.y, grav.z) || 9.81;
+    const tiltNow = Math.acos(Math.min(1, Math.abs(grav.z) / gn)) * 180 / Math.PI;
+    tiltSmooth = 0.85*tiltSmooth + 0.15*tiltNow;
+    if(e.acceleration && e.acceleration.x !== null){
+      lx = e.acceleration.x; ly = e.acceleration.y; lz = e.acceleration.z; // device provides it
+    } else {
+      lx = g.x - grav.x; ly = g.y - grav.y; lz = g.z - grav.z;             // high-passed
+    }
+  } else if(e.acceleration && e.acceleration.x !== null){
+    lx = e.acceleration.x; ly = e.acceleration.y; lz = e.acceleration.z;
+  } else return;
+
+  const m2 = lx*lx + ly*ly + lz*lz;
+  if(calibrating){ calSumSq += m2; calN++; calTiltSum += tiltSmooth; return; }
+  sumSq += m2; nSamples++;
+  const m = Math.sqrt(m2);
+  if(m > peak) peak = m;
+}
+
+function startCalibration(){
+  if(manualMode || !running) return;
+  calibrating = true; calSumSq = 0; calN = 0; calTiltSum = 0;
+  $('status').innerHTML = '<span class="cal">⏳ CALIBRATING — keep the phone perfectly still (2.5 s)…</span>';
+  setTimeout(() => {
+    if(calN > 5){
+      noiseFloor = Math.sqrt(calSumSq / calN);   // sensor noise at rest
+      tiltBase = calTiltSum / calN;              // "mounted" orientation = zero
+    }
+    calibrating = false;
+    sumSq = 0; nSamples = 0; peak = 0;
+    $('r-noise').textContent = noiseFloor.toFixed(3);
+    $('r-base').textContent = tiltBase.toFixed(1);
+    $('status').innerHTML = `<b>● LIVE</b> — calibrated · streaming zone ${zone}.<br>shake = vibration spike · tilt away from start position = tilt rise`;
+  }, 2500);
+}
+
+async function enableSensors(){
+  try{
+    if(typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function'){
+      const p = await DeviceMotionEvent.requestPermission(); // iOS 13+
+      if(p !== 'granted') throw new Error('denied');
+    }
+    window.addEventListener('devicemotion', onMotion);
+  }catch(e){ /* manual fallback below */ }
+  setTimeout(() => {
+    if(!motionSeen) switchToManual();
+    else startCalibration();
+  }, 1200);
+}
+
+function switchToManual(){
+  manualMode = true;
+  $('mode-tag').textContent = 'MANUAL NODE';
+  $('manual-extra').classList.remove('hidden');
+  $('recal-btn').classList.add('hidden');
+  $('status').innerHTML = 'Motion sensors unavailable on this device/connection —<br>' +
+    '<b>manual mode</b>: sliders + hold-to-vibrate still post through the real API.';
+  const sb = $('shake-btn');
+  const on  = ev => { ev.preventDefault(); shaking = true; };
+  const off = () => { shaking = false; };
+  sb.addEventListener('touchstart', on); sb.addEventListener('touchend', off);
+  sb.addEventListener('mousedown', on);  window.addEventListener('mouseup', off);
+}
+
+// ---- streaming loop: identical role to the ESP32 firmware main loop ----
+async function tick(){
+  let vib, tilt, pk = 0, rate = 0;
+  if(manualMode){
+    vib = shaking ? (1.6 + Math.random()*1.4) : (0.03 + Math.random()*0.05);
+    tilt = parseFloat($('m-tilt').value);
+    pk = vib;
+  } else {
+    const rawRms = nSamples > 0 ? Math.sqrt(sumSq / nSamples) : 0;
+    // subtract the calibrated noise floor in quadrature (standard practice)
+    vib = Math.sqrt(Math.max(0, rawRms*rawRms - noiseFloor*noiseFloor));
+    pk = peak;
+    rate = Math.round(nSamples / 2);
+    tilt = Math.abs(tiltSmooth - tiltBase);       // deviation from mounted baseline
+    sumSq = 0; nSamples = 0; peak = 0;
+  }
+  const rain = parseFloat($('rain').value);
+  $('r-vib').innerHTML  = vib.toFixed(3) + ' <span style="font-size:10px;">m/s²</span>';
+  $('r-peak').innerHTML = pk.toFixed(2) + ' <span style="font-size:10px;">m/s²</span>';
+  $('r-tilt').innerHTML = tilt.toFixed(1) + ' <span style="font-size:10px;">°</span>';
+  $('r-rate').innerHTML = rate + ' <span style="font-size:10px;">Hz</span>';
+  try{
+    const res = await fetch('/api/sensor-data', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ zone_id: zone, vibration: +vib.toFixed(3), tilt: +tilt.toFixed(2),
+                             rainfall: rain, temperature: 28, humidity: 62 })
+    });
+    const j = await res.json();
+    if(j.risk_level){
+      const cls = j.risk_level.toLowerCase();
+      $('risk-strip').innerHTML = `zone ${zone} risk: <span class="${cls}">${j.risk_score}% ${j.risk_level.toUpperCase()}</span>`;
+    }
+  }catch(e){
+    $('risk-strip').textContent = 'backend unreachable — check WiFi / server';
+  }
+}
+
+function toggleRun(){
+  running = !running;
+  const b = $('go');
+  if(running){
+    b.textContent = '■ STOP STREAMING'; b.classList.add('stop');
+    enableSensors();
+    keepAwake(true);
+    tick(); timer = setInterval(tick, 2000);
+  } else {
+    b.textContent = '▶ START STREAMING'; b.classList.remove('stop');
+    clearInterval(timer);
+    keepAwake(false);
+    $('status').textContent = 'Stopped. The dashboard will mark this node disconnected in ~15s.';
+  }
+}
+
+// ---- keep the screen awake while streaming — sensors stop if the phone sleeps ----
+let wakeLock = null;
+async function keepAwake(on){
+  try{
+    if(on && 'wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); }
+    else if(!on && wakeLock){ wakeLock.release(); wakeLock = null; }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', () => {
+  if(running && document.visibilityState === 'visible') keepAwake(true);
+});
+
+// ---- fully automatic on phones: open the link and the node arms itself ----
+const needsTapForPermission = typeof DeviceMotionEvent !== 'undefined' &&
+                              typeof DeviceMotionEvent.requestPermission === 'function'; // iOS gesture rule
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if(isTouchDevice && !needsTapForPermission){
+  // Android / most phones: zero-tap auto start
+  setTimeout(() => { if(!running) toggleRun(); }, 600);
+} else if(needsTapForPermission){
+  // iOS needs exactly one tap to grant motion access
+  $('go').textContent = '▶ TAP ONCE TO ARM SENSORS';
+}
+</script>
+</body>
+</html>

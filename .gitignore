@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# Local settings — contain recipients, tokens/passwords or this laptop's location
+backend/notify_config.json
+backend/weather_config.json
+
+# HTTPS certificate + private key — make your own with: py backend/make_cert.py
+backend/certs/
+
+# Survey photos and 3D models (gigabytes) — keep only the bundled sample
+backend/surveys/*
+!backend/surveys/sample/
